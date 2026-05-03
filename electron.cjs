@@ -19,9 +19,21 @@ function createWindow() {
   win.loadURL('http://localhost:5173')
   win.once('ready-to-show', () => win.show())
 
+  // Block Electron's built-in Ctrl+=/- zoom, then forward to React via executeJavaScript
+  win.webContents.on('before-input-event', (event, input) => {
+    if ((input.control || input.meta) && ['=', '+', '-', '0'].includes(input.key) && input.type === 'keyDown') {
+      event.preventDefault()
+      // Dispatch a custom event that GroupPage listens to
+      win.webContents.executeJavaScript(
+        `window.dispatchEvent(new KeyboardEvent('keydown', { key: '${input.key}', ctrlKey: true, bubbles: true }))`
+      )
+    }
+  })
+
+  // ── Window controls (minimize, maximize, close) ───────────────
   ipcMain.on('window-minimize', () => win.minimize())
   ipcMain.on('window-maximize', () => win.isMaximized() ? win.unmaximize() : win.maximize())
-  ipcMain.on('window-close', () => win.close())
+  ipcMain.on('window-close',    () => win.close())
 }
 
 app.whenReady().then(createWindow)

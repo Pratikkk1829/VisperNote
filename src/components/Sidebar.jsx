@@ -2,28 +2,30 @@ import { colors } from '../styles/theme'
 
 const ss = {
   sidebar: { width: 64, background: '#0d0d12', borderRight: `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 0', gap: 8, flexShrink: 0 },
-  homeBtn: { width: 40, height: 40, borderRadius: 12, border: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, cursor: 'pointer', background: colors.elevated },
+  dmBtn: { width: 40, height: 40, borderRadius: 12, background: colors.elevated, border: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, cursor: 'pointer', transition: 'all 0.2s' },
+  dmBtnActive: { background: colors.accentDim, borderColor: colors.accent },
   divider: { width: 32, height: 1, background: colors.border, margin: '4px 0' },
-  groupDot: { width: 40, height: 40, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '2px solid transparent', transition: 'all 0.2s' },
+  groupDot: { width: 40, height: 40, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, cursor: 'pointer', border: '2px solid transparent', transition: 'all 0.2s' },
   addGroup: { width: 40, height: 40, borderRadius: 14, border: `2px dashed ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, cursor: 'pointer', color: colors.textDim, transition: 'all 0.2s', background: 'transparent' },
-  dmBtn: { width: 40, height: 40, borderRadius: 12, background: colors.elevated, border: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, cursor: 'pointer', marginTop: 'auto' },
 }
 
-export default function Sidebar({ groups, activeGroup, onSelectGroup, onAddGroup, onGoHome, onGoDM, screen }) {
+export default function Sidebar({ groups, activeGroup, onSelectGroup, onAddGroup, onGoDM, screen }) {
   return (
     <div style={ss.sidebar}>
-      {/* Home */}
+      {/* DMs — top */}
       <div
-        style={{ ...ss.homeBtn, ...(screen === 'home' ? { background: colors.accentDim, borderColor: colors.accent } : {}) }}
-        onClick={onGoHome}
-        title="Home"
+        style={{ ...ss.dmBtn, ...(screen === 'dm' ? ss.dmBtnActive : {}) }}
+        onClick={onGoDM}
+        title="Direct Messages"
+        onMouseEnter={e => { if (screen !== 'dm') e.currentTarget.style.background = colors.surfaceHover }}
+        onMouseLeave={e => { if (screen !== 'dm') e.currentTarget.style.background = colors.elevated }}
       >
-        🏠
+        💬
       </div>
 
       <div style={ss.divider} />
 
-      {/* Group icons */}
+      {/* Groups */}
       {groups.map(g => (
         <div
           key={g.id}
@@ -39,7 +41,7 @@ export default function Sidebar({ groups, activeGroup, onSelectGroup, onAddGroup
         </div>
       ))}
 
-      {/* Add group button */}
+      {/* Add group */}
       <div
         style={ss.addGroup}
         onClick={onAddGroup}
@@ -49,9 +51,6 @@ export default function Sidebar({ groups, activeGroup, onSelectGroup, onAddGroup
       >
         +
       </div>
-
-      {/* DM button pinned to bottom */}
-      <div style={ss.dmBtn} onClick={onGoDM} title="Direct Messages">💬</div>
     </div>
   )
 }

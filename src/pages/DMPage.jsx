@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Titlebar from '../components/Titlebar'
+import Sidebar from '../components/Sidebar'
 import { colors, s, STATUS_COLOR } from '../styles/theme'
 
 const DM_CONTACTS = [
@@ -20,17 +21,13 @@ const INIT_MESSAGES = {
 
 const ss = {
   layout: { display: 'flex', flex: 1, overflow: 'hidden' },
-  rail: { width: 56, background: '#0d0d12', borderRight: `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '10px 0', gap: 6, flexShrink: 0 },
-  railBtn: { width: 36, height: 36, borderRadius: 10, background: colors.elevated, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 16 },
-  railDivider: { width: 28, height: 1, background: colors.border, margin: '2px 0' },
-  railAvatar: { width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', position: 'relative', transition: 'all 0.2s' },
-  pip: { width: 8, height: 8, borderRadius: '50%', position: 'absolute', bottom: 2, right: 2 },
   sidebar: { width: 200, background: colors.surface, borderRight: `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', flexShrink: 0 },
   sidebarHeader: { padding: '14px 14px 8px', fontSize: 12, fontWeight: 600, color: colors.textMid, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `1px solid ${colors.border}` },
   search: { margin: '8px 10px', background: colors.elevated, borderRadius: 8, padding: '6px 10px', display: 'flex', gap: 6, alignItems: 'center', border: `1px solid ${colors.border}` },
   contact: { display: 'flex', gap: 10, alignItems: 'center', padding: '10px 12px', cursor: 'pointer', transition: 'background 0.15s' },
   contactActive: { background: 'rgba(201,123,90,0.1)', borderLeft: '2px solid #c97b5a' },
   avatar: { width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  pip: { width: 8, height: 8, borderRadius: '50%', position: 'absolute', bottom: 1, right: 1 },
   dmName: { fontSize: 13, fontWeight: 500, color: colors.text },
   dmTime: { fontSize: 10, color: colors.textDim },
   dmLast: { fontSize: 11, color: colors.textDim, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
@@ -53,7 +50,7 @@ const ss = {
   profileBtn: { width: 34, height: 34, borderRadius: 8, background: colors.elevated, border: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 15 },
 }
 
-export default function DMPage({ onGoHome }) {
+export default function DMPage({ groups, activeGroup, onSelectGroup, onAddGroup, onGoDM }) {
   const [activeDM, setActiveDM] = useState(1)
   const [dmMessages, setDmMessages] = useState(INIT_MESSAGES)
   const [dmInput, setDmInput] = useState('')
@@ -70,28 +67,35 @@ export default function DMPage({ onGoHome }) {
     <div style={s.root}>
       <Titlebar />
       <div style={ss.layout}>
-        {/* Rail */}
-        <div style={ss.rail}>
-          <div style={ss.railBtn} onClick={onGoHome} title="Home">🏠</div>
-          <div style={ss.railDivider} />
-          {DM_CONTACTS.map(c => (
-            <div key={c.id} style={{ ...ss.railAvatar, background: c.color + '33', border: activeDM === c.id ? `2px solid ${c.color}` : '2px solid transparent' }} onClick={() => setActiveDM(c.id)}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: c.color }}>{c.avatar}</span>
-              <div style={{ ...ss.pip, background: STATUS_COLOR[c.status] }} />
-            </div>
-          ))}
-        </div>
 
-        {/* Sidebar */}
+        {/* Fixed group sidebar — same as always */}
+        <Sidebar
+          groups={groups}
+          activeGroup={activeGroup}
+          onSelectGroup={onSelectGroup}
+          onAddGroup={onAddGroup}
+          onGoDM={onGoDM}
+          screen="dm"
+        />
+
+        {/* DM contact list */}
         <div style={ss.sidebar}>
-          <div style={ss.sidebarHeader}><span>DMs</span><span style={{ cursor: 'pointer', fontSize: 18, color: colors.accent }}>+</span></div>
-          <div style={ss.search}><span style={{ fontSize: 12, color: colors.textDim }}>🔍</span><span style={{ fontSize: 12, color: colors.textDim }}>Search</span></div>
+          <div style={ss.sidebarHeader}>
+            <span>DMs</span>
+            <span style={{ cursor: 'pointer', fontSize: 18, color: colors.accent }}>+</span>
+          </div>
+          <div style={ss.search}>
+            <span style={{ fontSize: 12, color: colors.textDim }}>🔍</span>
+            <span style={{ fontSize: 12, color: colors.textDim }}>Search</span>
+          </div>
           <div style={{ flex: 1, overflowY: 'auto' }}>
             {DM_CONTACTS.map(c => (
               <div key={c.id} style={{ ...ss.contact, ...(activeDM === c.id ? ss.contactActive : {}) }} onClick={() => setActiveDM(c.id)}>
                 <div style={{ position: 'relative', flexShrink: 0 }}>
-                  <div style={{ ...ss.avatar, background: c.color + '33' }}><span style={{ fontSize: 15, fontWeight: 700, color: c.color }}>{c.avatar}</span></div>
-                  <div style={{ ...ss.pip, bottom: 1, right: 1, position: 'absolute', background: STATUS_COLOR[c.status], border: '2px solid #16161d' }} />
+                  <div style={{ ...ss.avatar, background: c.color + '33' }}>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: c.color }}>{c.avatar}</span>
+                  </div>
+                  <div style={{ ...ss.pip, background: STATUS_COLOR[c.status], border: '2px solid #16161d' }} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -104,7 +108,9 @@ export default function DMPage({ onGoHome }) {
             ))}
           </div>
           <div style={ss.self}>
-            <div style={{ ...ss.avatar, background: '#c97b5a33', flexShrink: 0 }}><span style={{ fontSize: 15, fontWeight: 700, color: colors.accent }}>V</span></div>
+            <div style={{ ...ss.avatar, background: '#c97b5a33', flexShrink: 0 }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: colors.accent }}>V</span>
+            </div>
             <span style={{ fontSize: 13, color: colors.textMid, fontWeight: 500 }}>VALIENTN</span>
             <div style={{ marginLeft: 'auto', cursor: 'pointer', fontSize: 16, color: colors.textDim }}>👤</div>
           </div>
@@ -113,7 +119,9 @@ export default function DMPage({ onGoHome }) {
         {/* Chat area */}
         <div style={ss.chat}>
           <div style={ss.chatHeader}>
-            <div style={{ ...ss.avatar, background: contact.color + '33', flexShrink: 0 }}><span style={{ fontSize: 15, fontWeight: 700, color: contact.color }}>{contact.avatar}</span></div>
+            <div style={{ ...ss.avatar, background: contact.color + '33', flexShrink: 0 }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: contact.color }}>{contact.avatar}</span>
+            </div>
             <span style={{ fontSize: 15, fontWeight: 600, color: colors.text }}>{contact.name}</span>
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
               {['🎙️', '📹', '⚙️', '⋯'].map(i => <span key={i} style={{ cursor: 'pointer', fontSize: 16, color: colors.textDim }}>{i}</span>)}
@@ -122,7 +130,11 @@ export default function DMPage({ onGoHome }) {
           <div style={ss.messages}>
             {(dmMessages[activeDM] || []).map(msg => (
               <div key={msg.id} style={{ display: 'flex', justifyContent: msg.mine ? 'flex-end' : 'flex-start', marginBottom: 10, alignItems: 'flex-end', gap: 8 }}>
-                {!msg.mine && <div style={{ ...ss.avatar, background: contact.color + '33', flexShrink: 0 }}><span style={{ fontSize: 13, fontWeight: 700, color: contact.color }}>{contact.avatar}</span></div>}
+                {!msg.mine && (
+                  <div style={{ ...ss.avatar, background: contact.color + '33', flexShrink: 0 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: contact.color }}>{contact.avatar}</span>
+                  </div>
+                )}
                 <div style={{ ...ss.bubble, ...(msg.mine ? ss.bubbleMine : {}) }}>{msg.text}</div>
               </div>
             ))}
@@ -137,7 +149,9 @@ export default function DMPage({ onGoHome }) {
 
         {/* Profile panel */}
         <div style={ss.profile}>
-          <div style={{ ...ss.profileAvatar, background: contact.color + '33' }}><span style={{ fontSize: 36, fontWeight: 700, color: contact.color }}>{contact.avatar}</span></div>
+          <div style={{ ...ss.profileAvatar, background: contact.color + '33' }}>
+            <span style={{ fontSize: 36, fontWeight: 700, color: contact.color }}>{contact.avatar}</span>
+          </div>
           <div style={ss.profileName}>{contact.name.toUpperCase()}</div>
           <div style={ss.profileBio}>{contact.bio}</div>
           <div style={ss.profileDivider} />
@@ -149,6 +163,7 @@ export default function DMPage({ onGoHome }) {
             {['🎙️', 'ℹ️', '📞', '⚙️'].map(i => <div key={i} style={ss.profileBtn}>{i}</div>)}
           </div>
         </div>
+
       </div>
     </div>
   )
