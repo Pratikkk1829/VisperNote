@@ -1,7 +1,7 @@
 {
   "name": "vispernote",
   "private": true,
-  "version": "0.0.1",
+  "version": "1.0.0",
   "type": "module",
   "main": "electron.cjs",
   "scripts": {
@@ -9,9 +9,34 @@
     "build": "vite build",
     "preview": "vite preview",
     "electron": "electron .",
-    "start": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\""
+    "start": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "dist": "npm run build && electron-builder --win --publish=never"
+  },
+  "build": {
+    "appId": "com.vispernote.app",
+    "productName": "VisperNote",
+    "icon": "build/icon.ico",
+    "directories": {
+      "buildResources": "build"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "vallenn",
+      "repo": "VisperNote"
+    }
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.105.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -19,6 +44,8 @@
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^9.0.0",
     "electron": "^33.0.0",
+    "electron-builder": "^26.0.12",
+    "electron-updater": "^6.6.2",
     "vite": "^5.4.8",
     "wait-on": "^8.0.0"
   }
