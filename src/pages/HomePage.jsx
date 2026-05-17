@@ -14,24 +14,24 @@ const TOOLBAR_ITEMS = {
 
 const ss = {
   app: { display: 'flex', flex: 1, overflow: 'hidden' },
-  main: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: colors.bg },
-  topnav: { height: 38, background: colors.surface, borderBottom: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', padding: '0 4px', gap: 2, flexShrink: 0 },
-  navItem: { padding: '5px 12px', borderRadius: 6, fontSize: 12.5, color: colors.textDim, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.2s' },
+  main: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: colors.bg, WebkitFontSmoothing: 'antialiased', MozOsxFontSmoothing: 'grayscale' },
+  topnav: { height: 38, background: 'var(--vn-grad-surface, var(--vn-surface))', borderBottom: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', padding: '0 4px', gap: 2, flexShrink: 0 },
+  navItem: { padding: '5px 12px', borderRadius: 6, fontSize: 12.5, color: colors.textDim, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.2s', WebkitFontSmoothing: 'antialiased' },
   navActive: { color: '#e8a882', background: colors.accentDim, fontWeight: 500 },
   toolbar: { height: 44, background: colors.panel, borderBottom: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', padding: '0 8px', gap: 2, flexShrink: 0, overflowX: 'auto' },
-  toolbarBtn: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, padding: '4px 10px', borderRadius: 6, cursor: 'pointer', minWidth: 44 },
-  toolbarLabel: { fontSize: 9, color: colors.textDim, whiteSpace: 'nowrap', letterSpacing: '0.03em' },
+  toolbarBtn: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, padding: '4px 10px', borderRadius: 6, cursor: 'pointer', minWidth: 44, WebkitFontSmoothing: 'antialiased' },
+  toolbarLabel: { fontSize: 9, color: colors.textDim, whiteSpace: 'nowrap', letterSpacing: '0.03em', WebkitFontSmoothing: 'antialiased' },
   writingArea: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
   homeScreen: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 32, width: '100%', height: '100%' },
-  homeTitle: { fontFamily: font.serif, fontSize: 26, color: colors.text, fontWeight: 400, letterSpacing: '0.02em' },
-  homeSubtitle: { fontSize: 13, color: colors.textDim, marginTop: 8, letterSpacing: '0.04em' },
+  homeTitle: { fontFamily: font.serif, fontSize: 26, color: colors.text, fontWeight: 400, letterSpacing: '0.02em', WebkitFontSmoothing: 'antialiased', MozOsxFontSmoothing: 'grayscale' },
+  homeSubtitle: { fontSize: 13, color: colors.textDim, marginTop: 8, letterSpacing: '0.04em', WebkitFontSmoothing: 'antialiased' },
   homeCards: { display: 'flex', gap: 16 },
-  homeCard: { width: 160, background: colors.elevated, border: `1px solid ${colors.border}`, borderRadius: 16, padding: '24px 16px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, cursor: 'pointer', transition: 'all 0.25s', position: 'relative', overflow: 'hidden' },
+  homeCard: { width: 160, background: 'var(--vn-grad-card, var(--vn-elevated))', border: `1px solid ${colors.border}`, borderRadius: 16, padding: '24px 16px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, cursor: 'pointer', transition: 'all 0.25s', position: 'relative', overflow: 'hidden', WebkitFontSmoothing: 'antialiased' },
   cardIcon: { width: 48, height: 48, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 },
-  cardTitle: { fontSize: 14, fontWeight: 500, color: colors.text },
-  cardDesc: { fontSize: 11, color: colors.textDim, textAlign: 'center', lineHeight: 1.5 },
+  cardTitle: { fontSize: 14, fontWeight: 500, color: colors.text, WebkitFontSmoothing: 'antialiased' },
+  cardDesc: { fontSize: 11, color: colors.textDim, textAlign: 'center', lineHeight: 1.5, WebkitFontSmoothing: 'antialiased' },
   statusbar: { height: 24, background: colors.panel, borderTop: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', padding: '0 12px', gap: 16, flexShrink: 0 },
-  statusItem: { fontSize: 10.5, color: colors.textDim, display: 'flex', alignItems: 'center', gap: 4 },
+  statusItem: { fontSize: 10.5, color: colors.textDim, display: 'flex', alignItems: 'center', gap: 4, WebkitFontSmoothing: 'antialiased' },
   statusDot: { width: 6, height: 6, borderRadius: '50%', background: colors.green },
 }
 
@@ -41,14 +41,14 @@ const FORMATS = [
   { type: 'script', icon: '📜', label: 'Script', desc: 'Co-write stories & scripts', color: '#7ab89a' },
 ]
 
-export default function HomePage({ groups, activeGroup, onSelectGroup, onAddGroup, onGoDM, onOpenBook }) {
+export default function HomePage({ groups, activeGroup, onSelectGroup, onReorderGroups, onAddGroup, onGoDM, onOpenBook, onCheckForUpdate }) {
   const [activeNav, setActiveNav] = useState('Home')
 
   return (
     <div style={s.root}>
-      <Titlebar />
+      <Titlebar onCheckForUpdate={onCheckForUpdate} />
       <div style={ss.app}>
-        <Sidebar groups={groups} activeGroup={activeGroup} onSelectGroup={onSelectGroup} onAddGroup={onAddGroup} onGoHome={() => {}} onGoDM={onGoDM} screen="home" />
+        <Sidebar groups={groups} activeGroup={activeGroup} onSelectGroup={onSelectGroup} onReorderGroups={onReorderGroups} onAddGroup={onAddGroup} onGoHome={() => {}} onGoDM={onGoDM} screen="home" />
         <div style={ss.main}>
           <div style={ss.topnav}>
             {NAV_ITEMS.map(item => (

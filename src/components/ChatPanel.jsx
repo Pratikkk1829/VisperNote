@@ -11,17 +11,20 @@ const ss = {
   header: { padding: '10px 14px 10px', fontSize: 12, color: cv.text, fontWeight: 600, borderBottom: `1px solid ${cv.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, minHeight: 42 },
   messages: { flex: 1, overflowY: 'auto', padding: '8px 0', display: 'flex', flexDirection: 'column' },
   inputWrap: { padding: 10, borderTop: `1px solid ${cv.border}`, display: 'flex', flexDirection: 'column', gap: 6 },
-  replyBar: { display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', background: cv.elevated, borderRadius: 8, fontSize: 11, color: cv.textDim, borderLeft: `3px solid ${cv.accent}` },
-  sendBtn: { width: 28, height: 28, borderRadius: 8, background: cv.accent, border: 'none', cursor: 'pointer', color: '#fff', fontSize: 12, flexShrink: 0 },
-  ctxMenu: { position: 'fixed', background: '#1e1b26', border: `1px solid ${cv.border}`, borderRadius: 12, padding: '6px 0', minWidth: 180, zIndex: 9999, boxShadow: '0 8px 32px rgba(0,0,0,0.5)' },
+  replyBar: { display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: 'var(--vn-grad-elevated, var(--vn-elevated))', borderRadius: 10, fontSize: 11, color: cv.textDim, borderLeft: `3px solid ${cv.accent}`, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.025)' },
+  sendBtn: { width: 28, height: 28, borderRadius: 8, background: 'var(--vn-grad-btn, var(--vn-accent))', border: 'none', cursor: 'pointer', color: '#fff', fontSize: 12, flexShrink: 0, boxShadow: 'var(--vn-glow-accent)' },
+  ctxMenu: { position: 'fixed', background: 'var(--vn-grad-surface, #1e1b26)', border: `1px solid ${cv.border}`, borderRadius: 12, padding: '6px 0', minWidth: 180, zIndex: 9999, boxShadow: '0 8px 32px rgba(0,0,0,0.5)' },
   ctxItem: { padding: '8px 14px', fontSize: 12.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, transition: 'background 0.1s' },
   ctxDivider: { height: 1, background: cv.border, margin: '4px 0' },
   settingsModal: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9000 },
-  modal: { background: '#1a1a24', border: `1px solid ${cv.border}`, borderRadius: 20, width: 360, display: 'flex', flexDirection: 'column', boxShadow: '0 24px 60px rgba(0,0,0,0.6)', overflow: 'hidden' },
+  modal: { background: 'var(--vn-grad-surface, #1a1a24)', border: `1px solid ${cv.border}`, borderRadius: 20, width: 360, display: 'flex', flexDirection: 'column', boxShadow: '0 24px 60px rgba(0,0,0,0.6)', overflow: 'hidden', animation: 'vnModalBloom 0.22s cubic-bezier(0.2,0.9,0.2,1) both' },
   modalHeader: { padding: '20px 22px 14px', borderBottom: `1px solid ${cv.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   modalTitle: { fontSize: 15, fontWeight: 600, color: cv.text },
   modalBody: { padding: 20, display: 'flex', flexDirection: 'column', gap: 10 },
   modalBtn: { padding: '10px 14px', borderRadius: 10, border: `1px solid ${cv.border}`, background: cv.elevated, color: cv.text, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 8, transition: 'background 0.15s' },
+  inviteLinkBox: { display: 'flex', gap: 8, background: cv.elevated, border: `1px solid ${cv.border}`, borderRadius: 10, padding: 6, alignItems: 'center' },
+  inviteLinkText: { flex: 1, minWidth: 0, color: cv.textMid, fontSize: 11.5, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', userSelect: 'all' },
+  copyLinkBtn: { padding: '7px 12px', background: 'var(--vn-grad-btn, var(--vn-accent))', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', flexShrink: 0, transition: 'transform 0.14s, background 0.2s' },
 }
 
 const avatarColor = (name) => {
@@ -117,23 +120,26 @@ function MsgBubble({ msg, prev, myId, ownerId, onReply, onForward, onDelete, onR
 
         {/* Reply reference with connecting line */}
         {msg.replyTo && (
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 2, position: 'relative' }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 3, position: 'relative', minHeight: 18 }}>
             {/* The curved connector line */}
             <div style={{
-              width: 22, height: 12,
+              width: 24, height: 14,
               borderTop: `2px solid ${cv.textDim}`,
               borderLeft: `2px solid ${cv.textDim}`,
-              borderTopLeftRadius: 6,
-              opacity: 0.4,
+              borderTopLeftRadius: 10,
+              opacity: 0.48,
               flexShrink: 0,
               alignSelf: 'flex-end',
-              marginBottom: 2,
+              marginBottom: 3,
             }} />
             <div style={{
-              fontSize: 11, color: cv.textDim, opacity: 0.75,
+              fontSize: 11, color: cv.textDim, opacity: 0.82,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               maxWidth: width - 110,
               cursor: 'pointer',
+              background: 'rgba(255,255,255,0.03)',
+              borderRadius: 6,
+              padding: '2px 7px',
             }}>
               <span style={{ fontWeight: 600, color: cv.accent, marginRight: 4 }}>{msg.replyTo.from}</span>
               {msg.replyTo.text}
@@ -201,12 +207,12 @@ function ActionBtn({ icon, tip, onClick, danger }) {
   const [hov, setHov] = useState(false)
   return (
     <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      {hov && <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: 4, background: '#111', color: '#eee', fontSize: 10, padding: '2px 6px', borderRadius: 5, whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 30 }}>{tip}</div>}
+      {hov && <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: 4, background: '#111', color: '#eee', fontSize: 10, padding: '2px 6px', borderRadius: 5, whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 30, animation: 'vnTooltipPop 0.16s cubic-bezier(0.2,0.9,0.2,1) both' }}>{tip}</div>}
       <div
         onMouseEnter={() => setHov(true)}
         onMouseLeave={() => setHov(false)}
         onClick={(e) => { e.stopPropagation(); onClick(e) }}
-        style={{ width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, cursor: 'pointer', borderRadius: 6, background: hov ? (danger ? 'rgba(232,80,80,0.2)' : 'rgba(255,255,255,0.1)') : 'transparent', transition: 'background 0.12s', filter: hov ? 'brightness(1.3)' : 'brightness(1)' }}
+        style={{ width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, cursor: 'pointer', borderRadius: 6, background: hov ? (danger ? 'rgba(232,80,80,0.2)' : 'rgba(255,255,255,0.1)') : 'transparent', transition: 'transform 0.14s, background 0.12s, filter 0.12s', transform: hov ? 'translateY(-1px) scale(1.08)' : 'scale(1)', filter: hov ? 'brightness(1.3)' : 'brightness(1)' }}
       >{icon}</div>
     </div>
   )
@@ -254,9 +260,10 @@ function SettingsModal({ groupName, onClose, onEditName, inviteCode, pinnedMsgs,
   const [copied, setCopied]     = useState(false)
   const [friendSearch, setFriendSearch] = useState('')
   const [invited, setInvited]   = useState(new Set())
+  const inviteLink = inviteCode ? `vispernote://join/${inviteCode}` : ''
 
   const copyInvite = () => {
-    navigator.clipboard?.writeText(inviteCode || '')
+    navigator.clipboard?.writeText(inviteLink)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -268,6 +275,12 @@ function SettingsModal({ groupName, onClose, onEditName, inviteCode, pinnedMsgs,
 
   return (
     <div style={ss.settingsModal} onClick={e => e.target === e.currentTarget && onClose()}>
+      <style>{`
+        @keyframes vnModalBloom {
+          from { opacity: 0; transform: translateY(18px) scale(0.96); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+      `}</style>
       <div style={{ ...ss.modal, width: tab === 'invite' ? 400 : 360 }}>
         <div style={ss.modalHeader}>
           <span style={ss.modalTitle}>
@@ -284,7 +297,18 @@ function SettingsModal({ groupName, onClose, onEditName, inviteCode, pinnedMsgs,
           {tab === 'main' && (
             <>
               <ModalBtn icon="✏️" label="Edit Diary Name" onClick={() => { setTab('rename'); setConfirming(false) }} />
-              <ModalBtn icon="👥" label="Invite Friends" onClick={() => setTab('invite')} />
+              <ModalBtn icon="👥" label="Invite & Members" onClick={() => setTab('invite')} />
+              <div style={ss.inviteLinkBox}>
+                <span style={ss.inviteLinkText}>{inviteLink || 'No invite link yet'}</span>
+                <button
+                  className="vn-process-btn"
+                  style={{ ...ss.copyLinkBtn, background: copied ? '#4caf82' : cv.accent }}
+                  onClick={copyInvite}
+                  disabled={!inviteLink}
+                >
+                  {copied ? 'Copied' : 'Copy Link'}
+                </button>
+              </div>
               <ModalBtn icon="📌" label="Pinned Messages" onClick={() => setTab('pinned')} />
             </>
           )}
@@ -367,12 +391,12 @@ function SettingsModal({ groupName, onClose, onEditName, inviteCode, pinnedMsgs,
                 }
               </div>
               {/* Invite code */}
-              <div style={{ fontSize: 11, color: cv.textDim, marginBottom: 6 }}>Or share an invite link:</div>
+              <div style={{ fontSize: 11, color: cv.textDim, marginBottom: 6 }}>Share a join link:</div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <div style={{ flex: 1, background: cv.elevated, border: `1px solid ${cv.border}`, borderRadius: 8, padding: '7px 10px', fontSize: 12, color: cv.text, fontFamily: 'monospace', userSelect: 'all', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {inviteCode || 'No code yet'}
+                  {inviteLink || 'No link yet'}
                 </div>
-                <button onClick={copyInvite} style={{ padding: '7px 12px', background: copied ? '#4caf82' : cv.accent, border: 'none', borderRadius: 8, color: '#fff', fontSize: 12, cursor: 'pointer', flexShrink: 0, transition: 'background 0.2s' }}>
+                <button className="vn-process-btn" onClick={copyInvite} style={{ padding: '7px 12px', background: copied ? '#4caf82' : cv.accent, border: 'none', borderRadius: 8, color: '#fff', fontSize: 12, cursor: 'pointer', flexShrink: 0, transition: 'background 0.2s' }}>
                   {copied ? '✓' : 'Copy'}
                 </button>
               </div>
@@ -512,7 +536,8 @@ export default function ChatPanel({ groupName, members, messages, chatMsg, onMsg
         <div style={ss.inputWrap}>
           {replyTo && (
             <div style={ss.replyBar}>
-              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>↩ {replyTo.from}: {replyTo.text}</span>
+              <span style={{ width: 22, height: 14, borderLeft: `2px solid ${cv.accent}`, borderTop: `2px solid ${cv.accent}`, borderTopLeftRadius: 10, opacity: 0.85, flexShrink: 0 }} />
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><b style={{ color: cv.accent }}>{replyTo.from}</b>: {replyTo.text}</span>
               <span style={{ cursor: 'pointer', fontSize: 13 }} onClick={() => setReplyTo(null)}>✕</span>
             </div>
           )}

@@ -107,6 +107,10 @@ export const cv = new Proxy({}, {
       accent: '--vn-accent', accentDim: '--vn-accent-dim', accentBorder: '--vn-accent-border',
       text: '--vn-text', textMid: '--vn-text-mid', textDim: '--vn-text-dim',
       textMuted: '--vn-text-dim', surfaceAlt: '--vn-elevated', surfaceHover: '--vn-hover',
+      gradSidebar: '--vn-grad-sidebar', gradSurface: '--vn-grad-surface',
+      gradElevated: '--vn-grad-elevated', gradAccent: '--vn-grad-accent',
+      gradBtn: '--vn-grad-btn', gradTitlebar: '--vn-grad-titlebar',
+      gradCard: '--vn-grad-card', glowAccent: '--vn-glow-accent',
     }
     return varMap[key] ? `var(${varMap[key]})` : colors[key]
   }
@@ -127,6 +131,17 @@ function injectCSSVars(def) {
   root.style.setProperty('--vn-text',          def.text)
   root.style.setProperty('--vn-text-mid',      def.textMid)
   root.style.setProperty('--vn-text-dim',      def.textDim)
+
+  // Gradient helpers — derived from the theme accent + surfaces
+  root.style.setProperty('--vn-grad-sidebar',  `linear-gradient(180deg, ${def.bg} 0%, color-mix(in srgb, ${def.surface} 97%, ${def.accent} 3%) 100%)`)
+  root.style.setProperty('--vn-grad-surface',  `${def.surface}`)
+  root.style.setProperty('--vn-grad-elevated', `${def.elevated}`)
+  root.style.setProperty('--vn-grad-accent',   `linear-gradient(135deg, ${def.accent} 0%, color-mix(in srgb, ${def.accent} 85%, #fff 15%) 100%)`)
+  root.style.setProperty('--vn-grad-btn',      `linear-gradient(160deg, color-mix(in srgb, ${def.accent} 95%, #fff 5%) 0%, ${def.accent} 100%)`)
+  root.style.setProperty('--vn-grad-titlebar', `${def.panel}`)
+  root.style.setProperty('--vn-grad-card',     `${def.elevated}`)
+  root.style.setProperty('--vn-glow-accent',   `0 0 8px color-mix(in srgb, ${def.accent} 12%, transparent)`)
+  root.style.setProperty('--vn-accent-raw',    def.accent)
 }
 
 // Inject on load
@@ -165,7 +180,7 @@ export const font = {
 }
 
 export const s = {
-  root: { fontFamily: font.ui, background: 'var(--vn-bg)', color: 'var(--vn-text)', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', userSelect: 'none' },
+  root: { fontFamily: font.ui, background: 'var(--vn-bg)', color: 'var(--vn-text)', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', userSelect: 'none', WebkitFontSmoothing: 'antialiased', MozOsxFontSmoothing: 'grayscale', textRendering: 'optimizeLegibility' },
   titlebar: { height: 32, background: 'var(--vn-panel)', borderBottom: `1px solid var(--vn-border)`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px', flexShrink: 0, WebkitAppRegion: 'drag' },
   titlebarName: { fontSize: 12, color: 'var(--vn-text-dim)', letterSpacing: '0.08em', fontWeight: 500 },
   winControls: { display: 'flex', gap: 6, WebkitAppRegion: 'no-drag' },

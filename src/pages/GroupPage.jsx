@@ -7,6 +7,7 @@ import LoadingOverlay from '../components/LoadingOverlay'
 import { supabase } from '../lib/supabase'
 import { colors, cv } from '../styles/theme'
 import { cacheRead, cacheWrite, cacheMergeArray, cacheDelete, outboxAdd, isOnline } from '../lib/cache'
+import { notifyApp } from '../lib/notifications'
 import { flushOutbox, pullEntries, pullMessages, syncGroup } from '../lib/sync'
 
 // Draws GIF first frame as static preview; shows live GIF only on hover
@@ -57,7 +58,7 @@ const CANVAS_THEMES = {
   Forest: 'linear-gradient(135deg, #0f1a10 0%, #0a120a 50%, #101a0f 100%)',
   Ocean:  'linear-gradient(135deg, #0f1520 0%, #0a0f18 50%, #0f1825 100%)',
   Ember:  'linear-gradient(135deg, #1a0f08 0%, #120a05 50%, #1a1008 100%)',
-  Frost:  'linear-gradient(135deg, #0f1520 0%, #0a1018 50%, #101520 100%)',
+  Frost:  'linear-gradient(135deg, #1a2a47 0%, #0a1018 50%, #101520 100%)',
 }
 
 // Color sub-panel options (same as before, now explicitly listed)
@@ -212,7 +213,7 @@ const ENTRY_ANIMS = {
   Out: 'vnEntryOut 0.7s ease both',
 }
 
-export default function GroupPage({ groups, activeGroup, onSelectGroup, onAddGroup, onGoDM, onGoSettings, screen, user, onCheckForUpdate }) {
+export default function GroupPage({ groups, activeGroup, onSelectGroup, onReorderGroups, onAddGroup, onGoDM, onGoSettings, screen, user, onCheckForUpdate }) {
   const [activeNav, setActiveNav]       = useState('Entries')
   const [activeEntry, setActiveEntry]   = useState(null)
   const [online, setOnline]             = useState(isOnline())
@@ -313,6 +314,9 @@ export default function GroupPage({ groups, activeGroup, onSelectGroup, onAddGro
   }, [activeGroup])
 
   const group = groups.find(g => g.id === activeGroup) || groups[0]
+  const layoutKind = group?.layout || 'diary'
+  const itemName = layoutKind === 'project' ? 'folder' : layoutKind === 'letter' ? 'letter' : layoutKind === 'script' ? 'scene' : 'entry'
+  const itemNameCap = itemName[0].toUpperCase() + itemName.slice(1)
 
   // Load design when group changes
   useEffect(() => {
@@ -371,6 +375,8 @@ export default function GroupPage({ groups, activeGroup, onSelectGroup, onAddGro
   const [pageAnimation, setPageAnimation] = useState('')
   const [animationPaused, setAnimationPaused] = useState(false)
   const [isPresenting, setIsPresenting] = useState(false)
+  const [showBookCover, setShowBookCover] = useState(false)
+  const [bookOpening, setBookOpening] = useState(false)
 
   // Esc exits fullscreen
   useEffect(() => {
@@ -468,14 +474,11 @@ export default function GroupPage({ groups, activeGroup, onSelectGroup, onAddGro
       }, (payload) => {
         // Skip own messages — already added optimistically in sendChat
         if (payload.new.user_id !== myIdRef.current) {
-          // Realtime doesn't include joined profiles — fetch it
           supabase.from('profiles').select('username, display_name').eq('id', payload.new.user_id).single()
             .then(({ data }) => {
-              setMessages(prev => [...prev, {
-                ...payload.new,
-                from: data?.display_name || data?.username || '???',
-                mine: false,
-              }])
+              const from = data?.display_name || data?.username || '???'
+              setMessages(prev => [...prev, { ...payload.new, from, mine: false }])
+              notifyApp({ type: 'message', title: group?.name || 'VisperNote', body: `${from}: ${payload.new.text}`, tag: activeGroup })
             })
         }
       })
@@ -684,6 +687,8 @@ export default function GroupPage({ groups, activeGroup, onSelectGroup, onAddGro
       setTimeout(() => { setNavUnlocked(false); setNavClosing(false) }, 250 + NAV_ITEMS.slice(1).length * 30)
       setViewingEntries(true)
       setActiveEntry(null)
+      setShowBookCover(false)
+      setBookOpening(false)
     } else {
       setNavClosing(false)
       setNavUnlocked(true)
@@ -715,6 +720,8 @@ export default function GroupPage({ groups, activeGroup, onSelectGroup, onAddGro
       setActiveNav('Home')
       setNavUnlocked(true)
       setViewingEntries(false)
+      setShowBookCover(true)
+      setBookOpening(false)
       setLeftText(entry?.left_content || '')
       setRightText(entry?.right_content || '')
       leftTextRef.current = entry?.left_content || ''
@@ -731,10 +738,18 @@ export default function GroupPage({ groups, activeGroup, onSelectGroup, onAddGro
     }, 300)
   }
 
+  const openBookCover = () => {
+    setBookOpening(true)
+    setTimeout(() => {
+      setShowBookCover(false)
+      setBookOpening(false)
+    }, 560)
+  }
+
   // ── Create entry ──────────────────────────────────────────
   const confirmNewEntry = async () => {
     if (!myId || !activeGroup) return
-    const title = newEntryTitle.trim() || 'Untitled Entry'
+    const title = newEntryTitle.trim() || `Untitled ${itemNameCap}`
     const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     setNewEntryTitle('')
     setShowNewEntry(false)
@@ -748,7 +763,7 @@ export default function GroupPage({ groups, activeGroup, onSelectGroup, onAddGro
       date: today,
       left_content: '',
       right_content: '',
-      preview: '',
+      preview: layoutKind === 'project' ? 'Blank pages ready...' : '',
       created_at: new Date().toISOString(),
     }
 
@@ -756,7 +771,7 @@ export default function GroupPage({ groups, activeGroup, onSelectGroup, onAddGro
       setLoading(true)
       const { data: entry, error } = await supabase
         .from('entries')
-        .insert({ group_id: activeGroup, created_by: myId, updated_by: myId, title, date: today, left_content: '', right_content: '', preview: '' })
+        .insert({ group_id: activeGroup, created_by: myId, updated_by: myId, title, date: today, left_content: '', right_content: '', preview: layoutKind === 'project' ? 'Blank pages ready...' : '' })
         .select()
         .single()
       setLoading(false)
@@ -1014,7 +1029,7 @@ export default function GroupPage({ groups, activeGroup, onSelectGroup, onAddGro
     <div style={s.root}>
       <Titlebar groupName={group?.name} entryName={currentEntry?.title} onCheckForUpdate={onCheckForUpdate}/>
       <div style={s.body}>
-        <Sidebar groups={groups} activeGroup={activeGroup} onSelectGroup={onSelectGroup} onAddGroup={onAddGroup} onGoDM={onGoDM} onGoSettings={onGoSettings} screen={screen} user={user} />
+        <Sidebar groups={groups} activeGroup={activeGroup} onSelectGroup={onSelectGroup} onReorderGroups={onReorderGroups} onAddGroup={onAddGroup} onGoDM={onGoDM} onGoSettings={onGoSettings} screen={screen} user={user} />
 
         <ChatPanel
           groupName={group?.name}
@@ -1033,7 +1048,7 @@ export default function GroupPage({ groups, activeGroup, onSelectGroup, onAddGro
           onForwardMsg={(msg) => {}}
           onlineUsers={onlineUsers}
           chatColor={typeof localStorage !== 'undefined' ? (localStorage.getItem('vn_chat_color') || '#c97b5a') : '#c97b5a'}
-          inviteCode={group?.invite_code || group?.id?.slice(0, 8).toUpperCase()}
+          inviteCode={group?.id}
           onEditName={async (newName) => {
             await supabase.from('groups').update({ name: newName }).eq('id', activeGroup)
             setGroup(prev => prev ? { ...prev, name: newName } : prev)
@@ -1327,7 +1342,7 @@ export default function GroupPage({ groups, activeGroup, onSelectGroup, onAddGro
               <div style={s.entriesView}>
                 <div style={s.entriesHeader}>
                   <div style={s.entriesTitle}>{group?.icon} {group?.name}</div>
-                  <div style={s.entriesSubtitle}>{entries.length} {entries.length === 1 ? 'entry' : 'entries'}</div>
+                  <div style={s.entriesSubtitle}>{entries.length} {entries.length === 1 ? itemName : `${itemName}s`}</div>
                 </div>
                 <div style={s.entriesList}>
                   {entries.map(e => {
@@ -1361,7 +1376,7 @@ export default function GroupPage({ groups, activeGroup, onSelectGroup, onAddGro
                           </div>
                           <div style={s.entryDate}>{e.date}</div>
                         </div>
-                        <div style={s.entryPreview}>{e.preview || 'No content yet...'}</div>
+                        <div style={s.entryPreview}>{layoutKind === 'project' ? (e.preview || 'Blank pages ready...') : e.preview || 'No content yet...'}</div>
                         {(e.tags || []).length > 0 && (
                           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                             {e.tags.map(tag => <span key={tag} style={s.tagSmall}>#{tag}</span>)}
@@ -1370,7 +1385,7 @@ export default function GroupPage({ groups, activeGroup, onSelectGroup, onAddGro
                         {isExpanded && (
                           <div style={s.entryExpand} onClick={ev => ev.stopPropagation()}>
                             <div style={{ fontSize: 11, color: cv.textDim }}>Double-click to open quickly</div>
-                            <button style={s.openBtn} onClick={() => openEntry(e.id)}>Open entry →</button>
+                            <button style={s.openBtn} onClick={() => openEntry(e.id)}>Open {itemName} →</button>
                           </div>
                         )}
                       </div>
@@ -1380,7 +1395,7 @@ export default function GroupPage({ groups, activeGroup, onSelectGroup, onAddGro
                     onMouseEnter={e => { e.currentTarget.style.borderColor = cv.accent; e.currentTarget.style.color = cv.accent }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = cv.border; e.currentTarget.style.color = cv.textDim }}>
                     <span style={{ fontSize: 20 }}>+</span>
-                    <span style={{ fontSize: 13 }}>New Entry</span>
+                    <span style={{ fontSize: 13 }}>New {itemNameCap}</span>
                   </div>
                 </div>
               </div>
@@ -1468,9 +1483,9 @@ export default function GroupPage({ groups, activeGroup, onSelectGroup, onAddGro
       {showNewEntry && (
         <div style={s.modalOverlay} onClick={() => setShowNewEntry(false)}>
           <div style={s.modal} onClick={e => e.stopPropagation()}>
-            <div style={s.modalTitle}>New Entry ✨</div>
-            <div style={s.modalSub}>Give your entry a name to get started</div>
-            <input style={s.modalInput} placeholder="Entry title..." value={newEntryTitle} onChange={e => setNewEntryTitle(e.target.value)} onKeyDown={e => e.key === 'Enter' && confirmNewEntry()} autoFocus />
+            <div style={s.modalTitle}>New {itemNameCap} ✨</div>
+            <div style={s.modalSub}>{layoutKind === 'project' ? 'Create a folder with blank pages inside' : `Give your ${itemName} a name to get started`}</div>
+            <input style={s.modalInput} placeholder={`${itemNameCap} title...`} value={newEntryTitle} onChange={e => setNewEntryTitle(e.target.value)} onKeyDown={e => e.key === 'Enter' && confirmNewEntry()} autoFocus />
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button style={s.modalBtnSecondary} onClick={() => setShowNewEntry(false)}>Cancel</button>
               <button style={s.modalBtnPrimary} onClick={confirmNewEntry}>Create →</button>
@@ -1662,6 +1677,14 @@ const s = {
   entryDate: { fontSize: 11, color: cv.textDim, flexShrink: 0 },
   entryPreview: { fontSize: 12, color: cv.textMid, lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   newEntryCard: { background: 'transparent', border: `1px dashed ${cv.border}`, borderRadius: 14, padding: '16px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, color: cv.textDim, transition: 'all 0.2s ease' },
+  coverStage: { flex: 1, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', perspective: 1300, background: 'radial-gradient(circle at center, rgba(255,255,255,0.04), transparent 52%)' },
+  closedBook: { width: 330, height: 460, borderRadius: '18px 10px 10px 18px', background: 'linear-gradient(135deg, #2a1a12 0%, #151015 52%, #25150d 100%)', border: `1px solid ${cv.accentBorder}`, boxShadow: '0 30px 80px rgba(0,0,0,0.58), inset 18px 0 30px rgba(0,0,0,0.35), inset -10px 0 18px rgba(255,255,255,0.035)', position: 'relative', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, color: cv.text, transformOrigin: 'left center', overflow: 'hidden' },
+  coverSpine: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 42, background: 'linear-gradient(90deg, rgba(0,0,0,0.48), rgba(255,255,255,0.035), rgba(0,0,0,0.18))', borderRight: `1px solid ${cv.border}` },
+  coverIcon: { width: 62, height: 62, borderRadius: 18, background: cv.accentDim, border: `1px solid ${cv.accentBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, boxShadow: '0 12px 30px rgba(0,0,0,0.35)' },
+  coverTitle: { maxWidth: 230, fontFamily: 'Georgia, serif', fontSize: 25, fontWeight: 700, textAlign: 'center', lineHeight: 1.15, color: cv.text },
+  coverMeta: { fontSize: 12, color: cv.textMid, textAlign: 'center' },
+  coverInfo: { display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', padding: '0 34px' },
+  coverHint: { position: 'absolute', bottom: 22, left: 42, right: 0, textAlign: 'center', fontSize: 11, color: cv.textDim },
   metaBar: { minHeight: 36, background: SURFACE_ALT, borderBottom: `1px solid ${cv.border}`, display: 'flex', alignItems: 'center', padding: '0 12px', gap: 8, flexShrink: 0, flexWrap: 'wrap' },
   metaPill: { background: cv.elevated, border: `1px solid ${cv.border}`, color: cv.textMid, borderRadius: 20, padding: '3px 10px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 },
   sizePreview: { borderRadius: '50%', border: '1px solid rgba(255,255,255,0.25)', flexShrink: 0 },

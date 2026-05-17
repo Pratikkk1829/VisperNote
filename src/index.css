@@ -2,10 +2,14 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
   overflow: hidden;
+  text-rendering: optimizeLegibility;
+  -webkit-text-size-adjust: 100%;
 }
 
 ::-webkit-scrollbar {
@@ -43,7 +47,109 @@ body, #root {
   transition: background 0.25s ease, color 0.2s ease;
 }
 
+@keyframes vnTooltipPop {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+@keyframes vnProcessSweep {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(260%); }
+}
+
+@keyframes vnSoftPop {
+  0% { transform: scale(0.98); }
+  55% { transform: scale(1.025); }
+  100% { transform: scale(1); }
+}
+
+button,
+[role="button"] {
+  transition:
+    transform 0.14s cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 0.14s ease,
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+button:not(:disabled):active,
+[role="button"]:active {
+  transform: scale(0.96);
+  filter: brightness(1.08);
+}
+
+input,
+textarea {
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+
+input:focus,
+textarea:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--vn-accent) 18%, transparent);
+}
+
+.vn-process-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.vn-process-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 42%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.24), transparent);
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+
+.vn-process-btn:active::after {
+  animation: vnProcessSweep 0.55s ease;
+}
+
+.vn-soft-pop {
+  animation: vnSoftPop 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
 /* Scrollbar adapts to theme */
 ::-webkit-scrollbar-thumb {
   background: var(--vn-border, rgba(255,255,255,0.1));
+}
+/* ── VisperNote Global Gradient Polish ── */
+
+/* All primary buttons get the accent gradient */
+button.vn-btn-primary,
+button[style*="var(--vn-grad-btn"],
+button[style*="var(--vn-accent"] {
+  background: var(--vn-grad-btn) !important;
+  box-shadow: var(--vn-glow-accent) !important;
+  border: none;
+}
+
+/* Focused inputs get accent glow */
+input:focus,
+textarea:focus {
+  border-color: var(--vn-accent-border, rgba(255,255,255,0.15)) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--vn-accent-raw, #c97b5a) 15%, transparent) !important;
+}
+
+/* Scrollbar uses accent color subtly */
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--vn-accent-raw, #c97b5a) 22%, var(--vn-border, rgba(255,255,255,0.08)) 78%) !important;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--vn-accent-raw, #c97b5a) 40%, var(--vn-border, rgba(255,255,255,0.1)) 60%) !important;
+}
+
+/* Active sidebar item glow */
+.vn-sidebar-active {
+  box-shadow: var(--vn-glow-accent);
+  border-color: var(--vn-accent-border) !important;
 }

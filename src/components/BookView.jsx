@@ -261,14 +261,25 @@ function FloatingElement({ el, onUpdate, onSelect, isSelected, onDelete, pageW, 
 }
 
 // ── DIARY LAYOUT ─────────────────────────────────────────────
-const DiaryLayout = forwardRef(function DiaryLayout({ groupName, leftText, rightText, onLeftChange, onRightChange, entryDate, isLocked, textColor, textAlign, fontFamily, activeFormat, onFocusTextarea, onRegisterInsert, initialElements, onElementsChange, showGrid, showRuler, pageAnimation, drawTool, drawColor, drawSize, onSelectElement }, ref) {
+const DiaryLayout = forwardRef(function DiaryLayout({ layoutType = 'diary', groupName, leftText, rightText, onLeftChange, onRightChange, entryDate, isLocked, textColor, textAlign, fontFamily, activeFormat, onFocusTextarea, onRegisterInsert, initialElements, onElementsChange, showGrid, showRuler, pageAnimation, drawTool, drawColor, drawSize, onSelectElement }, ref) {
   const [spreads, setSpreads] = useState([{ left: leftText || '', right: rightText || '' }])
   const [currentSpread, setCurrentSpread] = useState(0)
+  const [turn, setTurn] = useState(null)
   const totalSpreads = spreads.length
 
+  const turnTo = useCallback((dir) => {
+    const canTurn = dir === 'next' ? currentSpread < spreads.length - 1 : currentSpread > 0
+    if (!canTurn) return
+    setTurn(dir)
+    setTimeout(() => {
+      setCurrentSpread(p => dir === 'next' ? Math.min(spreads.length - 1, p + 1) : Math.max(0, p - 1))
+      setTimeout(() => setTurn(null), 440)
+    }, 420)
+  }, [currentSpread, spreads.length])
+
   useImperativeHandle(ref, () => ({
-    nextPage: () => setCurrentSpread(p => Math.min(spreads.length - 1, p + 1)),
-    prevPage: () => setCurrentSpread(p => Math.max(0, p - 1)),
+    nextPage: () => turnTo('next'),
+    prevPage: () => turnTo('prev'),
   }))  // no dep array — always fresh, avoids stale closure
 
   const leftRef = useRef(null)
@@ -501,6 +512,7 @@ const DiaryLayout = forwardRef(function DiaryLayout({ groupName, leftText, right
   }, [currentSpread])
 
   const spread = spreads[currentSpread] || { left: '', right: '' }
+  const isProject = layoutType === 'project'
   const leftPageNum  = currentSpread * 2 + 1
   const rightPageNum = currentSpread * 2 + 2
 
@@ -514,16 +526,31 @@ const DiaryLayout = forwardRef(function DiaryLayout({ groupName, leftText, right
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-      <div style={{ ...bookShell, animation: pageAnimation || 'none' }}>
+      <style>{`
+        @keyframes vnPageFlipNext {
+          0% { transform: rotateY(0deg) translateX(0) translateZ(2px) skewY(0deg); filter: brightness(1); box-shadow: -2px 0 8px rgba(0,0,0,0.14); }
+          28% { transform: rotateY(-38deg) translateX(-5px) translateZ(18px) skewY(-0.8deg); filter: brightness(1.03); box-shadow: -10px 0 24px rgba(0,0,0,0.20); }
+          58% { transform: rotateY(-104deg) translateX(-12px) translateZ(28px) skewY(-1.8deg); filter: brightness(0.96); box-shadow: -24px 0 42px rgba(0,0,0,0.24); }
+          100% { transform: rotateY(-176deg) translateX(-4px) translateZ(4px) skewY(-0.4deg); filter: brightness(0.9); box-shadow: -6px 0 14px rgba(0,0,0,0.14); }
+        }
+        @keyframes vnPageFlipPrev {
+          0% { transform: rotateY(0deg) translateX(0) translateZ(2px) skewY(0deg); filter: brightness(1); box-shadow: 2px 0 8px rgba(0,0,0,0.14); }
+          28% { transform: rotateY(38deg) translateX(5px) translateZ(18px) skewY(0.8deg); filter: brightness(1.03); box-shadow: 10px 0 24px rgba(0,0,0,0.20); }
+          58% { transform: rotateY(104deg) translateX(12px) translateZ(28px) skewY(1.8deg); filter: brightness(0.96); box-shadow: 24px 0 42px rgba(0,0,0,0.24); }
+          100% { transform: rotateY(176deg) translateX(4px) translateZ(4px) skewY(0.4deg); filter: brightness(0.9); box-shadow: 6px 0 14px rgba(0,0,0,0.14); }
+        }
+      `}</style>
+      <div style={{ perspective: 1200 }}>
+      <div style={{ ...bookShell, animation: pageAnimation || 'none', position: 'relative', transformStyle: 'preserve-3d', perspective: 1400, overflow: 'visible' }}>
 
         {/* Left page */}
         <div ref={leftPageRef} data-page="left" style={{ ...diaryPage, borderRadius: '14px 4px 4px 14px', position: 'relative', overflow: 'hidden' }}>
           {showGrid && <div style={gridOverlay} />}
           {showRuler && <div style={rulerTop} />}
           {showRuler && <div style={rulerSide} />}
-          <div style={diaryDate}>Date : {entryDate || today}</div>
+          <div style={diaryDate}>{isProject ? 'Folder page' : 'Date'} : {isProject ? groupName : (entryDate || today)}</div>
           <div ref={leftRef} contentEditable={!isLocked} suppressContentEditableWarning style={editableStyle}
-            data-placeholder="Begin writing your thoughts here..."
+            data-placeholder={isProject ? 'Blank project page...' : 'Begin writing your thoughts here...'}
             onInput={() => !isLocked && handleInput('left')}
             onFocus={() => { focusedPageRef.current = 'left'; onFocusTextarea?.(leftRef.current) }} />
           {elements.filter(e => e && e.id != null && e.page === 'left').map(el => (
@@ -550,7 +577,7 @@ const DiaryLayout = forwardRef(function DiaryLayout({ groupName, leftText, right
           )}
           <div style={diaryFooter}>
             <button style={{ ...navBtn, opacity: currentSpread === 0 ? 0.3 : 1 }}
-              onClick={() => setCurrentSpread(p => Math.max(0, p - 1))} disabled={currentSpread === 0}>←</button>
+              onClick={() => turnTo('prev')} disabled={currentSpread === 0}>←</button>
             <span style={pageNum2}>{leftPageNum}</span>
           </div>
         </div>
@@ -563,9 +590,9 @@ const DiaryLayout = forwardRef(function DiaryLayout({ groupName, leftText, right
           {showGrid && <div style={gridOverlay} />}
           {showRuler && <div style={rulerTop} />}
           {showRuler && <div style={rulerSide} />}
-          <div style={diaryDate}>Date : {entryDate || today}</div>
+          <div style={diaryDate}>{isProject ? 'Folder page' : 'Date'} : {isProject ? groupName : (entryDate || today)}</div>
           <div ref={rightRef} contentEditable={!isLocked} suppressContentEditableWarning style={editableStyle}
-            data-placeholder="...continue on the next page."
+            data-placeholder={isProject ? 'Add notes, plans, drafts, or references...' : '...continue on the next page.'}
             onInput={() => !isLocked && handleInput('right')}
             onFocus={() => { focusedPageRef.current = 'right'; onFocusTextarea?.(rightRef.current) }} />
           {elements.filter(e => e && e.id != null && e.page === 'right').map(el => (
@@ -592,20 +619,199 @@ const DiaryLayout = forwardRef(function DiaryLayout({ groupName, leftText, right
           <div style={diaryFooter}>
             <span style={pageNum2}>{rightPageNum}</span>
             <button style={{ ...navBtn, opacity: currentSpread >= totalSpreads - 1 ? 0.3 : 1 }}
-              onClick={() => setCurrentSpread(p => Math.min(totalSpreads - 1, p + 1))}
+              onClick={() => turnTo('next')}
               disabled={currentSpread >= totalSpreads - 1}>→</button>
           </div>
         </div>
+        {turn && (
+          <div style={{
+            ...turnPage,
+            left: turn === 'next' ? 309 : 6,
+            borderRadius: turn === 'next' ? '4px 14px 14px 4px' : '14px 4px 4px 14px',
+            transformOrigin: turn === 'next' ? 'left center' : 'right center',
+            animation: turn === 'next'
+              ? 'vnPageFlipNext 0.88s cubic-bezier(0.18,0.72,0.14,1) both'
+              : 'vnPageFlipPrev 0.88s cubic-bezier(0.18,0.72,0.14,1) both',
+          }}>
+            <div style={{ position: 'absolute', inset: 0, background: turn === 'next' ? 'linear-gradient(90deg, rgba(80,36,18,0.14), transparent 24%, rgba(255,255,255,0.22) 66%, rgba(80,36,18,0.1))' : 'linear-gradient(90deg, rgba(80,36,18,0.1), rgba(255,255,255,0.22) 34%, transparent 76%, rgba(80,36,18,0.14))', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', top: 0, bottom: 0, [turn === 'next' ? 'left' : 'right']: 0, width: 18, background: 'linear-gradient(90deg, rgba(70,32,16,0.18), transparent)', filter: 'blur(2px)' }} />
+            <div style={{ ...diaryDate, opacity: 0.5 }}>{isProject ? 'Folder page' : 'Date'} : {isProject ? groupName : (entryDate || today)}</div>
+          </div>
+        )}
+      </div>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(10,8,6,0.55)', backdropFilter: 'blur(8px)', borderRadius: 10, padding: '5px 14px', border: '1px solid rgba(255,255,255,0.08)' }}>
-        <div style={label}>📔 Diary — {groupName} &nbsp;·&nbsp; Spread {currentSpread + 1} of {totalSpreads}</div>
+        <div style={label}>{isProject ? '🗂️ Folder' : '📔 Diary'} — {groupName} &nbsp;·&nbsp; Spread {currentSpread + 1} of {totalSpreads}</div>
         {currentSpread === totalSpreads - 1 && (
           <button
             style={{ fontSize: 11, color: colors.accent, background: 'transparent', border: `1px solid ${colors.accentBorder}`, borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}
             onClick={addNewSpread}
           >+ New page</button>
         )}
+      </div>
+    </div>
+  )
+})
+
+// ── FOLDER PAGE LAYOUT ───────────────────────────────────────
+const parseFolderPages = (leftText, rightText) => {
+  try {
+    const parsed = JSON.parse(rightText || '[]')
+    if (Array.isArray(parsed) && parsed.length) {
+      const pages = parsed.map(p => String(p || ''))
+      if (leftText && !pages[0]) pages[0] = leftText
+      return pages
+    }
+  } catch {}
+  return [leftText || '']
+}
+
+const FolderLayout = forwardRef(function FolderLayout({ groupName, groupColor = colors.accent, groupIcon = '📁', leftText, rightText, onLeftChange, onRightChange, entryDate, isLocked, onFocusTextarea, showGrid, showRuler }, ref) {
+  const [pages, setPages] = useState(() => parseFolderPages(leftText, rightText))
+  const [currentPage, setCurrentPage] = useState(0)
+  const [turn, setTurn] = useState(null)
+  const pageRef = useRef(null)
+  const pageCount = Math.max(1, pages.length)
+  const currentHtml = pages[currentPage] || ''
+
+  useEffect(() => {
+    if (pageRef.current && pageRef.current.innerHTML !== currentHtml) {
+      pageRef.current.innerHTML = currentHtml
+    }
+    setTimeout(() => pageRef.current?.focus(), 35)
+  }, [currentPage])
+
+  const persistPages = useCallback((nextPages) => {
+    onLeftChange?.(nextPages[0] || '')
+    onRightChange?.(JSON.stringify(nextPages))
+  }, [onLeftChange, onRightChange])
+
+  const handleInput = () => {
+    if (!pageRef.current || isLocked) return
+    const html = pageRef.current.innerHTML === '<br>' ? '' : pageRef.current.innerHTML
+    setPages(prev => {
+      const next = [...prev]
+      next[currentPage] = html
+      persistPages(next)
+      return next
+    })
+  }
+
+  const turnFolderPage = useCallback((dir) => {
+    if (dir === 'prev' && currentPage === 0) return
+    setTurn(dir)
+    setTimeout(() => {
+      setCurrentPage(prev => {
+        if (dir === 'prev') return Math.max(0, prev - 1)
+        if (prev < pages.length - 1) return prev + 1
+        const nextPages = [...pages, '']
+        setPages(nextPages)
+        persistPages(nextPages)
+        return prev + 1
+      })
+      setTimeout(() => setTurn(null), 430)
+    }, 380)
+  }, [currentPage, pages, persistPages])
+
+  useImperativeHandle(ref, () => ({
+    nextPage: () => turnFolderPage('next'),
+    prevPage: () => turnFolderPage('prev'),
+  }), [turnFolderPage])
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+      <style>{`
+        @keyframes vnFolderPageIn {
+          from { opacity: 0; transform: translateY(18px) rotateX(8deg) scale(0.96); }
+          to { opacity: 1; transform: translateY(0) rotateX(0) scale(1); }
+        }
+        @keyframes vnFolderFlipNext {
+          0% { transform: rotateY(0deg) translateX(0) translateZ(2px) skewY(0); filter: brightness(1); }
+          35% { transform: rotateY(-46deg) translateX(-8px) translateZ(18px) skewY(-0.7deg); filter: brightness(1.03); }
+          68% { transform: rotateY(-118deg) translateX(-18px) translateZ(28px) skewY(-1.4deg); filter: brightness(0.96); }
+          100% { transform: rotateY(-176deg) translateX(-6px) translateZ(3px) skewY(-0.2deg); filter: brightness(0.9); }
+        }
+        @keyframes vnFolderFlipPrev {
+          0% { transform: rotateY(0deg) translateX(0) translateZ(2px) skewY(0); filter: brightness(1); }
+          35% { transform: rotateY(46deg) translateX(8px) translateZ(18px) skewY(0.7deg); filter: brightness(1.03); }
+          68% { transform: rotateY(118deg) translateX(18px) translateZ(28px) skewY(1.4deg); filter: brightness(0.96); }
+          100% { transform: rotateY(176deg) translateX(6px) translateZ(3px) skewY(0.2deg); filter: brightness(0.9); }
+        }
+      `}</style>
+      <div style={{ position: 'relative', perspective: 1500 }}>
+        <div style={{
+          width: 560,
+          minHeight: 620,
+          borderRadius: 18,
+          background: '#f1e3cc',
+          color: '#4f2b18',
+          boxShadow: `0 28px 75px rgba(0,0,0,0.46), 0 0 0 1px ${groupColor}55`,
+          overflow: 'hidden',
+          animation: 'vnFolderPageIn 0.38s cubic-bezier(0.2,0.8,0.2,1) both',
+          position: 'relative',
+        }}>
+          {showGrid && <div style={gridOverlay} />}
+          {showRuler && <div style={rulerTop} />}
+          {showRuler && <div style={rulerSide} />}
+          <div style={{ height: 72, padding: '18px 28px 12px', background: `linear-gradient(135deg, ${groupColor}33, rgba(255,255,255,0.22))`, borderBottom: `1px solid ${groupColor}55`, display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ width: 42, height: 42, borderRadius: 12, background: `${groupColor}26`, border: `1px solid ${groupColor}77`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{groupIcon}</div>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontFamily: 'Georgia, serif', fontSize: 20, fontWeight: 700, color: '#3d2114', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{groupName || 'Project folder'}</div>
+              <div style={{ fontSize: 12, color: '#8a6144', marginTop: 3 }}>Page {currentPage + 1} of {pageCount} · {entryDate || today}</div>
+            </div>
+          </div>
+          <div style={{ padding: '30px 42px 36px', position: 'relative' }}>
+            <div
+              ref={pageRef}
+              contentEditable={!isLocked}
+              suppressContentEditableWarning
+              data-placeholder="Start writing in this folder page..."
+              onInput={handleInput}
+              onFocus={() => onFocusTextarea?.(pageRef.current)}
+              style={{
+                minHeight: 460,
+                outline: 'none',
+                color: '#4f2b18',
+                fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
+                fontSize: 14,
+                lineHeight: '28px',
+                userSelect: 'text',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                backgroundImage: `repeating-linear-gradient(transparent, transparent ${LINE_H - 1}px, rgba(117,75,42,0.18) ${LINE_H - 1}px, rgba(117,75,42,0.18) ${LINE_H}px)`,
+                backgroundPositionY: 24,
+                opacity: isLocked ? 0.65 : 1,
+                cursor: isLocked ? 'not-allowed' : 'text',
+              }}
+            />
+          </div>
+        </div>
+        {turn && (
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            borderRadius: 18,
+            background: '#f1e3cc',
+            zIndex: 4,
+            pointerEvents: 'none',
+            transformOrigin: turn === 'next' ? 'left center' : 'right center',
+            animation: turn === 'next'
+              ? 'vnFolderFlipNext 0.82s cubic-bezier(0.18,0.72,0.14,1) both'
+              : 'vnFolderFlipPrev 0.82s cubic-bezier(0.18,0.72,0.14,1) both',
+            boxShadow: turn === 'next' ? '-18px 0 38px rgba(0,0,0,0.22)' : '18px 0 38px rgba(0,0,0,0.22)',
+            overflow: 'hidden',
+            willChange: 'transform, filter',
+          }}>
+            <div style={{ position: 'absolute', inset: 0, background: turn === 'next' ? 'linear-gradient(90deg, rgba(83,45,20,0.14), transparent 26%, rgba(255,255,255,0.3) 68%, rgba(83,45,20,0.08))' : 'linear-gradient(90deg, rgba(83,45,20,0.08), rgba(255,255,255,0.3) 32%, transparent 74%, rgba(83,45,20,0.14))' }} />
+            <div style={{ position: 'absolute', top: 0, bottom: 0, [turn === 'next' ? 'left' : 'right']: 0, width: 22, background: 'linear-gradient(90deg, rgba(83,45,20,0.16), transparent)', filter: 'blur(2px)' }} />
+          </div>
+        )}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(10,8,6,0.55)', backdropFilter: 'blur(8px)', borderRadius: 12, padding: '7px 14px', border: '1px solid rgba(255,255,255,0.08)' }}>
+        <button style={{ ...navBtn, opacity: currentPage === 0 ? 0.35 : 1 }} onClick={() => turnFolderPage('prev')} disabled={currentPage === 0}>←</button>
+        <div style={label}>🗂️ Folder page {currentPage + 1} / {pageCount}</div>
+        <button style={navBtn} onClick={() => turnFolderPage('next')}>→</button>
       </div>
     </div>
   )
@@ -745,6 +951,22 @@ const diaryPage = {
   backgroundImage: `repeating-linear-gradient(transparent, transparent ${LINE_H - 1}px, rgba(180,100,70,0.35) ${LINE_H - 1}px, rgba(180,100,70,0.35) ${LINE_H}px)`,
   backgroundPositionY: 46,
 }
+const turnPage = {
+  ...diaryPage,
+  background: '#edbea4',
+  flex: 'none',
+  position: 'absolute',
+  top: 6,
+  width: 300,
+  height: 480,
+  zIndex: 85,
+  pointerEvents: 'none',
+  transformStyle: 'preserve-3d',
+  backfaceVisibility: 'hidden',
+  overflow: 'hidden',
+  border: '1px solid rgba(112,58,31,0.12)',
+  willChange: 'transform, filter',
+}
 const bookShell = {
   display: 'flex',
   background: '#1a1008',
@@ -815,10 +1037,10 @@ const pageNum2 = { fontFamily: 'Georgia, serif', fontSize: 11, color: '#c4816a' 
 const label = { fontSize: 12, color: colors.textDim, letterSpacing: '0.06em' }
 
 // ── MAIN EXPORT ───────────────────────────────────────────────
-const BookView = forwardRef(function BookView({ layout = 'diary', groupName, leftText, rightText, onLeftChange, onRightChange, pageNum = 1, entryDate, isLocked, isOwner, textColor, textAlign, fontFamily, activeFormat, onFocusTextarea, onRegisterInsert, initialElements, onElementsChange, showGrid, showRuler, pageAnimation, drawTool, drawColor, drawSize, onSelectElement }, ref) {
+const BookView = forwardRef(function BookView({ layout = 'diary', groupName, groupColor, groupIcon, leftText, rightText, onLeftChange, onRightChange, pageNum = 1, entryDate, isLocked, isOwner, textColor, textAlign, fontFamily, activeFormat, onFocusTextarea, onRegisterInsert, initialElements, onElementsChange, showGrid, showRuler, pageAnimation, drawTool, drawColor, drawSize, onSelectElement }, ref) {
   if (layout === 'letter') return <LetterLayout leftText={leftText} onLeftChange={isLocked ? () => {} : onLeftChange} groupName={groupName} showGrid={showGrid} showRuler={showRuler} pageAnimation={pageAnimation} />
   if (layout === 'script') return <ScriptLayout leftText={leftText} onLeftChange={isLocked ? () => {} : onLeftChange} groupName={groupName} showGrid={showGrid} showRuler={showRuler} pageAnimation={pageAnimation} />
-  if (layout === 'project') return <ProjectLayout groupName={groupName} showGrid={showGrid} pageAnimation={pageAnimation} />
+  if (layout === 'project') return <FolderLayout ref={ref} groupName={groupName} groupColor={groupColor} groupIcon={groupIcon} leftText={leftText} rightText={rightText} onLeftChange={onLeftChange} onRightChange={onRightChange} entryDate={entryDate} isLocked={isLocked} onFocusTextarea={onFocusTextarea} showGrid={showGrid} showRuler={showRuler} />
   return <DiaryLayout ref={ref} groupName={groupName} leftText={leftText} rightText={rightText} onLeftChange={onLeftChange} onRightChange={onRightChange} entryDate={entryDate} isLocked={isLocked} textColor={textColor} textAlign={textAlign} fontFamily={fontFamily} activeFormat={activeFormat} onFocusTextarea={onFocusTextarea} onRegisterInsert={onRegisterInsert} initialElements={initialElements} onElementsChange={onElementsChange} showGrid={showGrid} showRuler={showRuler} pageAnimation={pageAnimation} drawTool={drawTool} drawColor={drawColor} drawSize={drawSize} onSelectElement={onSelectElement} />
 })
 export default BookView

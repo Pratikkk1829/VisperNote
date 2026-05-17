@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import logoImg from '../assets/vispernote-logo.png'
 
 const DEFAULT_PHRASES = [
-  'Setting the mood...',
-  'Warming up the pages...',
-  'Sharpening the quill...',
-  'Opening the inkwell...',
+  'Preparing your workspace',
+  'Syncing your pages',
+  'Restoring your session',
+  'Opening VisperNote',
 ]
 
 export default function SplashScreen({ onDone, message = null }) {
@@ -16,44 +16,46 @@ export default function SplashScreen({ onDone, message = null }) {
   const displayMessage = message || DEFAULT_PHRASES[phraseIdx]
 
   useEffect(() => {
-    if (message) return
-
-    // Phrase cycling
     const phraseTimer = setInterval(() => {
       setPhraseIdx(i => (i + 1) % DEFAULT_PHRASES.length)
     }, 700)
 
-    // Progress bar animation
     const start = Date.now()
-    const duration = 2350
+    const duration = message ? 1500 : 2350
 
     const barTimer = setInterval(() => {
       const elapsed = Date.now() - start
-      const newProgress = Math.min((elapsed / duration) * 100, 100)
+      const cap = message ? 88 : 100
+      const newProgress = Math.min((elapsed / duration) * cap, cap)
       setProgress(newProgress)
 
-      if (newProgress >= 100) {
+      if (newProgress >= cap) {
         clearInterval(barTimer)
       }
     }, 16)
 
-    // Auto exit
-    const exitTimer = setTimeout(() => {
-      setExiting(true)
-      setTimeout(onDone, 480)
-    }, 2500)
+    let exitTimer
+    if (!message) {
+      exitTimer = setTimeout(() => {
+        setExiting(true)
+        setTimeout(onDone, 480)
+      }, 2500)
+    }
 
     return () => {
       clearInterval(phraseTimer)
       clearInterval(barTimer)
-      clearTimeout(exitTimer)
+      if (exitTimer) clearTimeout(exitTimer)
     }
   }, [onDone, message])
 
+  useEffect(() => {
+    if (!message) return
+    setProgress(p => Math.max(p, 34))
+  }, [message])
+
   return (
     <div style={{ ...ss.root, opacity: exiting ? 0 : 1, transition: 'opacity 0.45s ease' }}>
-      <div style={ss.blobPurple} />
-      <div style={ss.blobTeal} />
       <div style={ss.noise} />
 
       <div style={{ 
@@ -99,22 +101,9 @@ export default function SplashScreen({ onDone, message = null }) {
 const ss = {
   root: {
     position: 'fixed', inset: 0, zIndex: 9999,
-    background: '#0a0a0f',
+    background: 'radial-gradient(circle at 50% 44%, rgba(201,123,90,0.16), transparent 28%), #0a0a0f',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     overflow: 'hidden',
-  },
-
-  blobPurple: {
-    position: 'absolute', width: 620, height: 620,
-    borderRadius: '50%', top: '-15%', left: '-10%',
-    background: 'radial-gradient(circle, rgba(147, 51, 234, 0.22) 0%, transparent 65%)',
-    animation: 'blobFloat 13s ease-in-out infinite',
-  },
-  blobTeal: {
-    position: 'absolute', width: 480, height: 480,
-    borderRadius: '50%', bottom: '-10%', right: '-8%',
-    background: 'radial-gradient(circle, rgba(45, 212, 191, 0.18) 0%, transparent 70%)',
-    animation: 'blobFloat 17s ease-in-out infinite reverse',
   },
   noise: {
     position: 'absolute', inset: 0,
@@ -167,11 +156,10 @@ const ss = {
   },
 
   phrase: {
-    fontSize: 13.5,
-    letterSpacing: '3px',
-    textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.35)',
-    fontWeight: 500,
+    fontSize: 13,
+    letterSpacing: 0,
+    color: 'rgba(255,255,255,0.48)',
+    fontWeight: 600,
     minHeight: 22,
     textAlign: 'center',
   },

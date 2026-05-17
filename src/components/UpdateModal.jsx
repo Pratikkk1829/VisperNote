@@ -10,6 +10,14 @@ export default function UpdateModal({ isOpen, onClose, status, progress, version
     else setTimeout(() => setShow(false), 300)
   }, [isOpen])
 
+  // Auto-close after 2s in dev mode or up-to-date
+  useEffect(() => {
+    if (status === 'dev-mode' || status === 'up-to-date') {
+      const t = setTimeout(() => onClose(), 2000)
+      return () => clearTimeout(t)
+    }
+  }, [status])
+
   if (!isOpen && !show) return null
 
   const states = {

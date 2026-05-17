@@ -1,7 +1,7 @@
 {
   "name": "vispernote",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "main": "electron.cjs",
   "scripts": {
@@ -25,27 +25,36 @@
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "shortcutName": "VisperNote",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
     },
     "publish": {
       "provider": "github",
-      "owner": "vallenn",
+      "owner": "pratik",
       "repo": "VisperNote"
-    }
+    },
+    "files": [
+      "dist/**/*",
+      "electron.cjs",
+      "package.json"
+    ]
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.1",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "electron-updater": "^6.6.2"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^9.0.0",
     "electron": "^33.0.0",
     "electron-builder": "^26.0.12",
-    "electron-updater": "^6.6.2",
     "vite": "^5.4.8",
     "wait-on": "^8.0.0"
   }

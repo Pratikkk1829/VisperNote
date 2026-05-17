@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import Titlebar from '../components/Titlebar'
+import LoadingOverlay from '../components/LoadingOverlay'
 import { colors, cv, s, THEMES, applyTheme } from '../styles/theme'
 import { supabase } from '../lib/supabase'
+import { requestNotificationPermission } from '../lib/notifications'
 
 const SECTIONS = [
   { id: 'profile',       icon: '👤', label: 'Profile' },
@@ -29,7 +31,7 @@ function ToggleRow({ label, desc, val, onChange }) {
   )
 }
 
-export default function SettingsPage({ onBack, user, onUpdateUser }) {
+export default function SettingsPage({ onBack, user, onUpdateUser, onCheckForUpdate }) {
   const [sec, setSec]           = useState('profile')
   const [saving, setSaving]     = useState(false)
   const [confirmModal, setConfirmModal] = useState(null) // 'logout' | 'delete' | null
@@ -71,8 +73,10 @@ export default function SettingsPage({ onBack, user, onUpdateUser }) {
     try {
       let finalAvatar = avatarUrl
 
-      // Convert uploaded file to base64 data URL — no storage bucket needed
-      if (avatarPreview && fileRef.current?.files?.[0]) {
+      // Cropping already gives us a final data URL. Fall back to raw file only if needed.
+      if (avatarPreview) {
+        finalAvatar = avatarPreview
+      } else if (fileRef.current?.files?.[0]) {
         const file = fileRef.current.files[0]
         finalAvatar = await new Promise((resolve, reject) => {
           const reader = new FileReader()
@@ -132,16 +136,16 @@ export default function SettingsPage({ onBack, user, onUpdateUser }) {
   }
 
   const initials = (s) => (s || '?')[0].toUpperCase()
-  const inp = { background: colors.elevated, border: `1px solid ${colors.border}`, borderRadius: 8, padding: '9px 12px', fontSize: 13, color: colors.text, outline: 'none', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box', userSelect: 'text' }
+  const inp = { background: 'var(--vn-grad-card, var(--vn-elevated))', border: `1px solid ${colors.border}`, borderRadius: 8, padding: '9px 12px', fontSize: 13, color: colors.text, outline: 'none', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box', userSelect: 'text' }
 
   return (
     <>
     <div style={{ ...s.root, background: colors.bg, color: colors.text }}>
-      <Titlebar />
+      <Titlebar onCheckForUpdate={onCheckForUpdate} />
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
         {/* Sidebar */}
-        <div style={{ width: 210, background: colors.surface, borderRight: `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', padding: '12px 0', flexShrink: 0 }}>
+        <div style={{ width: 210, background: 'var(--vn-grad-surface, var(--vn-surface))', borderRight: `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', padding: '12px 0', flexShrink: 0 }}>
           <div style={{ padding: '8px 16px', fontSize: 13, color: colors.accent, fontWeight: 500, cursor: 'pointer', marginBottom: 8 }} onClick={onBack}>← Back</div>
           <div style={{ padding: '6px 16px 4px', fontSize: 10, letterSpacing: '0.1em', color: colors.textDim, fontWeight: 600 }}>SETTINGS</div>
           {SECTIONS.map(s => (
@@ -162,13 +166,13 @@ export default function SettingsPage({ onBack, user, onUpdateUser }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ fontSize: 10, letterSpacing: '0.1em', fontWeight: 700, color: colors.textDim }}>AVATAR</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                  <div style={{ width: 72, height: 72, borderRadius: '50%', background: colors.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 28, fontWeight: 700, flexShrink: 0, overflow: 'hidden', border: `2px solid ${colors.accentBorder}` }}>
+                  <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--vn-grad-btn, var(--vn-accent))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 28, fontWeight: 700, flexShrink: 0, overflow: 'hidden', border: `2px solid ${colors.accentBorder}` }}>
                     {avatarPreview ? <img src={avatarPreview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
                       : avatarUrl ? <img src={avatarUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
                       : initials(displayName || username)}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <button style={{ padding: '7px 16px', borderRadius: 8, background: colors.accent, border: 'none', color: '#fff', fontSize: 13, fontWeight: 500, cursor: 'pointer' }} onClick={() => fileRef.current?.click()}>Choose pfp</button>
+                    <button style={{ padding: '7px 16px', borderRadius: 8, background: 'var(--vn-grad-btn, var(--vn-accent))', border: 'none', color: '#fff', fontSize: 13, fontWeight: 500, cursor: 'pointer' }} onClick={() => fileRef.current?.click()}>Choose pfp</button>
                     <button style={{ padding: '7px 16px', borderRadius: 8, background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textMid, fontSize: 13, cursor: 'pointer' }} onClick={removeAvatar}>Remove avatar</button>
                     <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
                       const f = e.target.files?.[0]; if (!f) return
@@ -198,7 +202,7 @@ export default function SettingsPage({ onBack, user, onUpdateUser }) {
                 <textarea style={{ ...inp, height: 88, resize: 'none', lineHeight: 1.5 }} value={bio} onChange={e => setBio(e.target.value)} placeholder="A little something about you..." maxLength={160} />
                 <div style={{ fontSize: 11, color: colors.textDim }}>{bio.length}/160 characters</div>
               </div>
-              <button disabled={saving} style={{ padding: '9px 20px', borderRadius: 9, background: colors.accent, border: 'none', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, alignSelf: 'flex-start' }} onClick={saveProfile}>
+              <button disabled={saving} style={{ padding: '9px 20px', borderRadius: 9, background: 'var(--vn-grad-btn, var(--vn-accent))', border: 'none', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, alignSelf: 'flex-start' }} onClick={saveProfile}>
                 {saving ? 'Saving...' : 'Save changes'}
               </button>
             </>)}
@@ -234,7 +238,7 @@ export default function SettingsPage({ onBack, user, onUpdateUser }) {
                   <input type="range" min={11} max={18} value={fontSize} onChange={e => handleFontSize(Number(e.target.value))} style={{ flex: 1, accentColor: colors.accent }} />
                   <span style={{ fontSize: 18, color: colors.textDim }}>A</span>
                 </div>
-                <div style={{ fontSize, fontFamily: font, color: colors.textMid, padding: '10px 14px', background: colors.elevated, borderRadius: 8 }}>
+                <div style={{ fontSize, fontFamily: font, color: colors.textMid, padding: '10px 14px', background: 'var(--vn-grad-card, var(--vn-elevated))', borderRadius: 8 }}>
                   The quick brown fox jumps over the lazy dog.
                 </div>
 
@@ -261,6 +265,15 @@ export default function SettingsPage({ onBack, user, onUpdateUser }) {
             {sec === 'notifications' && (<>
               <div style={{ fontSize: 20, fontWeight: 600, color: colors.text, paddingBottom: 12, borderBottom: `1px solid ${colors.border}` }}>Notifications</div>
               <div style={{ fontSize: 11, color: colors.textDim }}>Changes are saved automatically.</div>
+              <button
+                style={{ padding: '8px 16px', borderRadius: 8, background: 'var(--vn-grad-btn, var(--vn-accent))', border: 'none', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-start' }}
+                onClick={async () => {
+                  const result = await requestNotificationPermission()
+                  flash(result === 'granted' ? 'Notifications enabled!' : 'Notifications not allowed')
+                }}
+              >
+                Enable desktop notifications
+              </button>
               <ToggleRow label="New messages" desc="When someone sends a message in a shared diary" val={notifMsg} onChange={v => { setNotifMsg(v); localStorage.setItem('vn_notif_msg', v) }} />
               <ToggleRow label="Mentions" desc="When someone @mentions you in a diary or chat" val={notifMention} onChange={v => { setNotifMen(v); localStorage.setItem('vn_notif_mention', v) }} />
               <ToggleRow label="Notification sounds" desc="Play a sound when you receive a notification" val={notifSound} onChange={v => { setNotifSnd(v); localStorage.setItem('vn_notif_sound', v) }} />
@@ -272,7 +285,7 @@ export default function SettingsPage({ onBack, user, onUpdateUser }) {
               <ToggleRow label="Show online status" desc="Let others see when you're active" val={showOnline} onChange={setShowOnline} />
               <ToggleRow label="Show streak count" desc="Display your writing streak on your profile" val={showStreak} onChange={setShowStreak} />
               <ToggleRow label="Read receipts" desc="Let others know when you've read their messages" val={readReceipts} onChange={setReadReceipts} />
-              <button style={{ padding: '9px 20px', borderRadius: 9, background: colors.accent, border: 'none', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-start' }} onClick={savePrivacy}>Save privacy settings</button>
+              <button style={{ padding: '9px 20px', borderRadius: 9, background: 'var(--vn-grad-btn, var(--vn-accent))', border: 'none', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-start' }} onClick={savePrivacy}>Save privacy settings</button>
               <div style={{ marginTop: 16, paddingTop: 20, borderTop: `1px solid ${colors.border}` }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#e05555', marginBottom: 12 }}>Danger Zone</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -297,7 +310,7 @@ export default function SettingsPage({ onBack, user, onUpdateUser }) {
     {confirmModal && (
       <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
         onClick={() => setConfirmModal(null)}>
-        <div style={{ background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: 16, padding: '28px 32px', width: 360, display: 'flex', flexDirection: 'column', gap: 16 }}
+        <div style={{ background: 'var(--vn-grad-surface, var(--vn-surface))', border: `1px solid ${colors.border}`, borderRadius: 16, padding: '28px 32px', width: 360, display: 'flex', flexDirection: 'column', gap: 16 }}
           onClick={e => e.stopPropagation()}>
           <div style={{ fontSize: 17, fontWeight: 600, color: confirmModal === 'delete' ? '#e05555' : colors.text }}>
             {confirmModal === 'logout' ? '👋 Log out?' : '🗑️ Delete account?'}
@@ -323,7 +336,7 @@ export default function SettingsPage({ onBack, user, onUpdateUser }) {
     {cropModal && (
       <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}
         onClick={() => setCropModal(null)}>
-        <div style={{ background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: 20, padding: '28px 28px 24px', width: 380, display: 'flex', flexDirection: 'column', gap: 20 }}
+        <div style={{ background: 'var(--vn-grad-surface, var(--vn-surface))', border: `1px solid ${colors.border}`, borderRadius: 20, padding: '28px 28px 24px', width: 380, display: 'flex', flexDirection: 'column', gap: 20 }}
           onClick={e => e.stopPropagation()}>
           <div style={{ fontSize: 16, fontWeight: 600, color: colors.text }}>Choose pfp</div>
 
@@ -366,7 +379,7 @@ export default function SettingsPage({ onBack, user, onUpdateUser }) {
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
             <button style={{ padding: '8px 18px', borderRadius: 8, background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textMid, fontSize: 13, cursor: 'pointer' }}
               onClick={() => setCropModal(null)}>Cancel</button>
-            <button style={{ padding: '8px 20px', borderRadius: 8, background: colors.accent, border: 'none', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+            <button style={{ padding: '8px 20px', borderRadius: 8, background: 'var(--vn-grad-btn, var(--vn-accent))', border: 'none', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
               onClick={() => {
                 // Render cropped image to canvas → data URL
                 const img = new Image()
@@ -391,6 +404,7 @@ export default function SettingsPage({ onBack, user, onUpdateUser }) {
         </div>
       </div>
     )}
+    <LoadingOverlay visible={saving} message="Saving settings..." compact />
     </>
   )
 }

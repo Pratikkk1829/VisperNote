@@ -4,9 +4,14 @@ const fs = require('fs')
 const { autoUpdater } = require('electron-updater')
 
 // Configure autoUpdater
-autoUpdater.autoDownload = false  // Don't auto-download, let user confirm
+autoUpdater.autoDownload = false
 autoUpdater.autoInstallOnAppQuit = true
 autoUpdater.allowPrerelease = false
+// Don't log to console to avoid noise
+autoUpdater.logger = null
+
+// Track whether the update check was user-initiated
+let userInitiatedCheck = false
 
 // ============== AUTO UPDATER SETUP ==============
 function setupAutoUpdater(win) {
@@ -20,7 +25,11 @@ function setupAutoUpdater(win) {
   })
 
   autoUpdater.on('update-not-available', () => {
-    win.webContents.send('update-status', 'up-to-date')
+    // Only tell the renderer if the user explicitly asked
+    if (userInitiatedCheck) {
+      win.webContents.send('update-status', 'up-to-date')
+    }
+    userInitiatedCheck = false
   })
 
   autoUpdater.on('download-progress', (progress) => {
@@ -38,20 +47,49 @@ function setupAutoUpdater(win) {
   })
 
   autoUpdater.on('error', (err) => {
-    // In dev mode, autoUpdater always errors — send a friendly status
-    const isDev = !require('electron').app.isPackaged
+    const isDev = !app.isPackaged
+
+// In dev mode, Electron tries to write cache to the project dir which is often
+// inside OneDrive/synced folders → "Access is denied". Fix: use a proper temp path.
+if (isDev) {
+  const os = require('os')
+  app.setPath('userData', require('path').join(require('os').homedir(), 'AppData', 'Roaming', 'VisperNote-dev'))
+}
     if (isDev) {
-      win.webContents.send('update-status', 'dev-mode')
+      // Dev mode — only tell renderer if user asked
+      if (userInitiatedCheck) {
+        win.webContents.send('update-status', 'dev-mode')
+      }
     } else {
-      win.webContents.send('update-status', 'error')
-      win.webContents.send('update-error', err.message)
+      // Prod mode — only show error if user explicitly checked
+      // Silently swallow auto-startup errors (no GitHub release yet, offline, etc.)
+      if (userInitiatedCheck) {
+        // If error is about missing release/feed, treat as "up to date" not a hard error
+        const msg = (err.message || '').toLowerCase()
+        const noRelease = msg.includes('404') || msg.includes('cannot find') || 
+                          msg.includes('no published') || msg.includes('latest.yml') ||
+                          msg.includes('updates feed') || msg.includes('net::err')
+        if (noRelease) {
+          win.webContents.send('update-status', 'up-to-date')
+        } else {
+          win.webContents.send('update-status', 'error')
+          win.webContents.send('update-error', err.message)
+        }
+      }
     }
+    userInitiatedCheck = false
   })
 
   // IPC handlers
   ipcMain.on('check-for-update', () => {
-    try { autoUpdater.checkForUpdates() } catch (e) {
-      win.webContents.send('update-status', require('electron').app.isPackaged ? 'error' : 'dev-mode')
+    userInitiatedCheck = true
+    try {
+      autoUpdater.checkForUpdates()
+    } catch (e) {
+      if (userInitiatedCheck) {
+        win.webContents.send('update-status', app.isPackaged ? 'error' : 'dev-mode')
+      }
+      userInitiatedCheck = false
     }
   })
 
@@ -65,6 +103,51 @@ function setupAutoUpdater(win) {
 }
 
 const isDev = !app.isPackaged
+const APP_PROTOCOL = 'vispernote'
+let pendingDeepLink = null
+
+function findDeepLink(argv = []) {
+  return argv.find(arg => typeof arg === 'string' && arg.toLowerCase().startsWith(`${APP_PROTOCOL}://`))
+}
+
+function sendDeepLink(url) {
+  if (!url) return
+  pendingDeepLink = url
+  if (mainWindow?.webContents) {
+    mainWindow.show()
+    mainWindow.focus()
+    mainWindow.webContents.send('deep-link', url)
+    pendingDeepLink = null
+  }
+}
+
+// In dev mode, Electron tries to write cache to the project dir which is often
+// inside OneDrive/synced folders → "Access is denied". Fix: use a proper temp path.
+if (isDev) {
+  const os = require('os')
+  app.setPath('userData', require('path').join(require('os').homedir(), 'AppData', 'Roaming', 'VisperNote-dev'))
+}
+
+if (isDev) {
+  app.setAsDefaultProtocolClient(APP_PROTOCOL, process.execPath, [path.resolve(process.argv[1] || '.')])
+} else {
+  app.setAsDefaultProtocolClient(APP_PROTOCOL)
+}
+pendingDeepLink = findDeepLink(process.argv) || pendingDeepLink
+
+const singleInstanceLock = app.requestSingleInstanceLock()
+if (!singleInstanceLock) {
+  app.quit()
+} else {
+  app.on('second-instance', (_event, argv) => {
+    sendDeepLink(findDeepLink(argv))
+  })
+}
+
+app.on('open-url', (event, url) => {
+  event.preventDefault()
+  sendDeepLink(url)
+})
 
 function getIcon() {
   const candidates = [
@@ -107,22 +190,29 @@ function createWindow() {
     const tryLoad = (retries = 20) => {
       mainWindow.loadURL('http://localhost:5173').catch(() => {
         if (retries > 0) {
-          console.log(`[electron] Vite not ready yet, retrying... (${retries} left)`)
           setTimeout(() => tryLoad(retries - 1), 500)
-        } else {
-          console.error('[electron] Could not connect to Vite dev server.')
         }
       })
     }
     tryLoad()
   } else {
-    mainWindow.loadFile(path.join(__dirname, 'dist/index.html'))
+    mainWindow.loadFile(path.join(__dirname, 'dist', 'index.html'))
   }
 
   mainWindow.once('ready-to-show', () => mainWindow.show())
+  mainWindow.webContents.once('did-finish-load', () => {
+    if (pendingDeepLink) sendDeepLink(pendingDeepLink)
+  })
 
-  // Setup auto-updater
+  // Setup auto-updater — run silently on startup (no popup on error)
   setupAutoUpdater(mainWindow)
+  if (!isDev) {
+    // Delay startup check so app fully loads first
+    setTimeout(() => {
+      userInitiatedCheck = false  // ensure silent
+      try { autoUpdater.checkForUpdates() } catch {}
+    }, 5000)
+  }
 
   // ============== KEYBOARD SHORTCUTS ==============
   const STEP = 0.1
@@ -173,7 +263,9 @@ function createWindow() {
   ipcMain.on('window-close', () => mainWindow.close())
 }
 
-app.whenReady().then(createWindow)
+if (singleInstanceLock) {
+  app.whenReady().then(createWindow)
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
