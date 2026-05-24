@@ -1,7 +1,7 @@
 {
   "name": "vispernote",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "main": "electron.cjs",
   "scripts": {
@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "electron": "electron .",
     "start": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "dist": "npm run build && electron-builder --win --publish=never"
+    "dist": "npm run build && electron-builder --win --publish=never",
+    "dist:publish": "npm run build && electron-builder --win --publish=always"
   },
   "build": {
     "appId": "com.vispernote.app",
@@ -35,7 +36,7 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "pratik",
+      "owner": "Pratikkk1829",
       "repo": "VisperNote"
     },
     "files": [

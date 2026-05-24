@@ -126,6 +126,16 @@ function localFileToBlobUrl(filename) {
   } catch (e) { console.error('[VN] localFileToBlobUrl error:', e); return null }
 }
 
+function remoteDesignUrl(bucket, filename) {
+  if (!filename) return null
+  try {
+    const { data } = supabase.storage.from(bucket).getPublicUrl(filename)
+    return data?.publicUrl || null
+  } catch {
+    return null
+  }
+}
+
 async function downloadDesignFile({ storageUrl, filename, onProgress }) {
   try {
     const fs   = window.require('fs')
@@ -213,7 +223,7 @@ const ENTRY_ANIMS = {
   Out: 'vnEntryOut 0.7s ease both',
 }
 
-export default function GroupPage({ groups, activeGroup, onSelectGroup, onReorderGroups, onAddGroup, onGoDM, onGoSettings, screen, user, onCheckForUpdate }) {
+export default function GroupPage({ groups, activeGroup, onSelectGroup, onReorderGroups, onAddGroup, onUpdateGroup, onDeleteGroup, onGoDM, onGoSettings, screen, user, onCheckForUpdate }) {
   const [activeNav, setActiveNav]       = useState('Entries')
   const [activeEntry, setActiveEntry]   = useState(null)
   const [online, setOnline]             = useState(isOnline())
@@ -270,11 +280,15 @@ export default function GroupPage({ groups, activeGroup, onSelectGroup, onReorde
 
   // Open the design modal (confirmation step)
   const openDesignModal = useCallback((opt) => {
+    const targetGroup = groups.find(g => g.id === activeGroup)
+    if (targetGroup?.created_by !== user?.id) return
     setDesignModal({ opt, dlPct: null, done: false, error: false })
-  }, [])
+  }, [activeGroup, groups, user?.id])
 
   // Called when user confirms download inside the modal
   const confirmDesignDownload = useCallback(async () => {
+    const targetGroup = groups.find(g => g.id === activeGroup)
+    if (targetGroup?.created_by !== user?.id) return
     setDesignModal(prev => prev ? { ...prev, dlPct: 0 } : prev)
     const opt = designModal?.opt
     if (!opt) return
@@ -304,37 +318,58 @@ export default function GroupPage({ groups, activeGroup, onSelectGroup, onReorde
       console.error('[VN] design download failed:', e)
       setDesignModal(prev => prev ? { ...prev, error: true } : prev)
     }
-  }, [designModal])
+  }, [activeGroup, designModal, groups, user?.id])
 
   // Save design to server
   const saveDesign = useCallback(async (mode, colorTheme, abstract, animation) => {
     if (!activeGroup) return
+    const targetGroup = groups.find(g => g.id === activeGroup)
+    if (targetGroup?.created_by !== user?.id) return
     const design_json = JSON.stringify({ mode, colorTheme, abstract, animation })
     await supabase.from('groups').update({ design_json }).eq('id', activeGroup)
-  }, [activeGroup])
+    onUpdateGroup?.(activeGroup, { design_json })
+  }, [activeGroup, groups, onUpdateGroup, user?.id])
 
   const group = groups.find(g => g.id === activeGroup) || groups[0]
   const layoutKind = group?.layout || 'diary'
   const itemName = layoutKind === 'project' ? 'folder' : layoutKind === 'letter' ? 'letter' : layoutKind === 'script' ? 'scene' : 'entry'
   const itemNameCap = itemName[0].toUpperCase() + itemName.slice(1)
+  const isGroupOwner = group?.created_by === user?.id
+  const entriesTabLabel = 'Diary'
+  const entryToolbarItems = layoutKind === 'project'
+    ? [{ icon: '🗂️', label: 'New Folder' }, ...TOOLBAR_ITEMS.Entries.slice(1)]
+    : TOOLBAR_ITEMS.Entries
+  const toolbarItems = activeNav === 'Entries' ? entryToolbarItems : (TOOLBAR_ITEMS[activeNav] || [])
 
   // Load design when group changes
   useEffect(() => {
-    if (!group?.design_json) return
+    if (!group?.design_json) {
+      setDesignMode('color')
+      setCanvasTheme('Dark')
+      setAbstractTheme(null)
+      setAnimationTheme(null)
+      setActiveAbstractFile(null)
+      setActiveAnimationFile(null)
+      return
+    }
     try {
       const d = JSON.parse(group.design_json)
+      setAbstractTheme(null)
+      setAnimationTheme(null)
+      setActiveAbstractFile(null)
+      setActiveAnimationFile(null)
       if (d.mode) setDesignMode(d.mode)
       if (d.colorTheme) setCanvasTheme(d.colorTheme)
       if (d.abstract) {
-        const url = localFileToBlobUrl(d.abstract)
+        const url = localFileToBlobUrl(d.abstract) || remoteDesignUrl('abstracts', d.abstract)
         if (url) { setAbstractTheme(url); setActiveAbstractFile(d.abstract) }
       }
       if (d.animation) {
-        const url = localFileToBlobUrl(d.animation)
+        const url = localFileToBlobUrl(d.animation) || remoteDesignUrl('animations', d.animation)
         if (url) { setAnimationTheme(url); setActiveAnimationFile(d.animation) }
       }
     } catch {}
-  }, [group?.id])
+  }, [group?.id, group?.design_json])
   const [showNewEntry, setShowNewEntry] = useState(false)
   const [showDeleteEntry, setShowDeleteEntry] = useState(false)
   const [newEntryTitle, setNewEntryTitle] = useState('')
@@ -676,6 +711,7 @@ export default function GroupPage({ groups, activeGroup, onSelectGroup, onReorde
 
   // ── Nav ───────────────────────────────────────────────────
   const handleNavClick = (item) => {
+    if (item === 'Design' && !isGroupOwner) return
     setActiveNav(item)
     // Always close sub-panels when switching tabs
     setSubPanel(null)
@@ -890,8 +926,10 @@ export default function GroupPage({ groups, activeGroup, onSelectGroup, onReorde
 
   // ── Toolbar actions ───────────────────────────────────────
   const handleToolClick = (label) => {
-    if (label !== 'New Entry' && !activeEntry) return
-    if (label === 'New Entry') { setShowNewEntry(true); return }
+    const createsNewItem = label === 'New Entry' || label === 'New Folder'
+    if (!createsNewItem && !activeEntry) return
+    if (createsNewItem) { setShowNewEntry(true); return }
+    if (activeNav === 'Design' && !isGroupOwner) return
     if (label === 'Rename') {
       const entry = entries.find(e => e.id === activeEntry)
       if (entry) { setRenamingEntry(entry.id); setRenameValue(entry.title) }
@@ -1049,24 +1087,37 @@ export default function GroupPage({ groups, activeGroup, onSelectGroup, onReorde
           onlineUsers={onlineUsers}
           chatColor={typeof localStorage !== 'undefined' ? (localStorage.getItem('vn_chat_color') || '#c97b5a') : '#c97b5a'}
           inviteCode={group?.id}
+          onDeleteGroup={() => onDeleteGroup?.(activeGroup)}
           onEditName={async (newName) => {
             await supabase.from('groups').update({ name: newName }).eq('id', activeGroup)
-            setGroup(prev => prev ? { ...prev, name: newName } : prev)
+            onUpdateGroup?.(activeGroup, { name: newName })
           }}
         />
         <div style={s.main}>
           {/* Navbar */}
           <div style={s.topnav}>
-            <div style={{ ...s.navItem, ...(activeNav === 'Entries' ? s.navActive : {}) }} onClick={() => handleNavClick('Entries')}>Entries</div>
+            <div style={{ ...s.navItem, ...(activeNav === 'Entries' ? s.navActive : {}) }} onClick={() => handleNavClick('Entries')}>{entriesTabLabel}</div>
             {(navUnlocked || navClosing) && NAV_ITEMS.slice(1).map((item, i) => (
-              <div key={item} style={{ ...s.navItem, ...(activeNav === item ? s.navActive : {}), animation: navClosing ? `slideOut 0.2s ease ${i * 0.03}s both` : `slideIn 0.25s ease ${i * 0.03}s both` }} onClick={() => handleNavClick(item)}>{item}</div>
+              <div
+                key={item}
+                title={item === 'Design' && !isGroupOwner ? 'Only the diary owner can change the canvas design' : item}
+                style={{
+                  ...s.navItem,
+                  ...(activeNav === item ? s.navActive : {}),
+                  ...(item === 'Design' && !isGroupOwner ? { opacity: 0.45, cursor: 'not-allowed' } : {}),
+                  animation: navClosing ? `slideOut 0.2s ease ${i * 0.03}s both` : `slideIn 0.25s ease ${i * 0.03}s both`
+                }}
+                onClick={() => handleNavClick(item)}
+              >{item}</div>
             ))}
           </div>
 
           {/* Toolbar */}
           <div style={s.toolbar}>
-            {(TOOLBAR_ITEMS[activeNav] || []).map((tool, i) => {
-              const isDisabled = (tool.label !== 'New Entry' && !activeEntry) ||
+            {toolbarItems.map((tool, i) => {
+              const createsNewItem = tool.label === 'New Entry' || tool.label === 'New Folder'
+              const isDisabled = (!createsNewItem && !activeEntry) ||
+                (activeNav === 'Design' && !isGroupOwner) ||
                 (activeNav === 'Transitions' && TRANSITION_ANIMS[tool.label] && !selectedElementId)
               const isActive =
                 (tool.label === 'Lock' && meta.is_locked) ||
@@ -1097,7 +1148,8 @@ export default function GroupPage({ groups, activeGroup, onSelectGroup, onReorde
                 <div key={i}
                   style={{ ...s.toolBtn, ...(isActive ? s.toolBtnActive : {}), ...(isDisabled ? { opacity: 0.4, cursor: 'not-allowed', pointerEvents: 'none' } : {}) }}
                   title={
-                    !activeEntry ? 'Open an entry first' :
+                    (activeNav === 'Design' && !isGroupOwner) ? 'Only the diary owner can change the canvas design' :
+                    (!createsNewItem && !activeEntry) ? `Open a ${itemName} first` :
                     (activeNav === 'Transitions' && TRANSITION_ANIMS[tool.label] && !selectedElementId) ? 'Select an element first' :
                     tool.label
                   }
@@ -1232,7 +1284,10 @@ export default function GroupPage({ groups, activeGroup, onSelectGroup, onReorde
                     ...(designMode === 'color' && canvasTheme === opt.label ? s.toolBtnActive : {}),
                     animation: subClosing ? `slideOut 0.2s ease ${i*0.03}s both` : `slideIn 0.22s ease ${i*0.03}s both`,
                     gap: 4,
-                  }} onClick={() => { setDesignMode('color'); setCanvasTheme(opt.label); setAbstractTheme(null); setAnimationTheme(null); saveDesign('color', opt.label, null, null) }}>
+                  }} onClick={() => {
+                    if (!isGroupOwner) return
+                    setDesignMode('color'); setCanvasTheme(opt.label); setAbstractTheme(null); setAnimationTheme(null); saveDesign('color', opt.label, null, null)
+                  }}>
                     <div style={{ width: 28, height: 18, borderRadius: 4, background: opt.gradient, border: '1px solid rgba(255,255,255,0.12)', flexShrink: 0 }} />
                     <span style={s.toolLabel}>{opt.label}</span>
                   </div>
@@ -1253,6 +1308,7 @@ export default function GroupPage({ groups, activeGroup, onSelectGroup, onReorde
                             gap: 4, minWidth: 70, position: 'relative',
                             cursor: isDone ? 'pointer' : 'default',
                           }} onClick={() => {
+                            if (!isGroupOwner) return
                             if (!isDone) { openDesignModal(opt); return }
                             const blobUrl = localFileToBlobUrl(opt.filename)
                             setDesignMode('abstract'); setAbstractTheme(blobUrl); setActiveAbstractFile(opt.filename); setAnimationTheme(null); setActiveAnimationFile(null); saveDesign('abstract', canvasTheme, opt.filename, null)
@@ -1287,6 +1343,7 @@ export default function GroupPage({ groups, activeGroup, onSelectGroup, onReorde
                             gap: 4, minWidth: 70, position: 'relative',
                             cursor: isDone ? 'pointer' : 'default',
                           }} onClick={() => {
+                            if (!isGroupOwner) return
                             if (!isDone) { openDesignModal(opt); return }
                             const blobUrl = localFileToBlobUrl(opt.filename)
                             setDesignMode('animation'); setAnimationTheme(blobUrl); setActiveAnimationFile(opt.filename); setAbstractTheme(null); setActiveAbstractFile(null); saveDesign('animation', canvasTheme, null, opt.filename)

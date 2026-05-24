@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, nativeImage } = require('electron')
+const { app, BrowserWindow, ipcMain, nativeImage, Notification } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const { autoUpdater } = require('electron-updater')
@@ -48,13 +48,6 @@ function setupAutoUpdater(win) {
 
   autoUpdater.on('error', (err) => {
     const isDev = !app.isPackaged
-
-// In dev mode, Electron tries to write cache to the project dir which is often
-// inside OneDrive/synced folders → "Access is denied". Fix: use a proper temp path.
-if (isDev) {
-  const os = require('os')
-  app.setPath('userData', require('path').join(require('os').homedir(), 'AppData', 'Roaming', 'VisperNote-dev'))
-}
     if (isDev) {
       // Dev mode — only tell renderer if user asked
       if (userInitiatedCheck) {
@@ -105,6 +98,11 @@ if (isDev) {
 const isDev = !app.isPackaged
 const APP_PROTOCOL = 'vispernote'
 let pendingDeepLink = null
+
+app.setName('VisperNote')
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.vispernote.app')
+}
 
 function findDeepLink(argv = []) {
   return argv.find(arg => typeof arg === 'string' && arg.toLowerCase().startsWith(`${APP_PROTOCOL}://`))
@@ -261,6 +259,22 @@ function createWindow() {
   ipcMain.on('window-minimize', () => mainWindow.minimize())
   ipcMain.on('window-maximize', () => mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize())
   ipcMain.on('window-close', () => mainWindow.close())
+  ipcMain.on('show-notification', (_event, payload = {}) => {
+    if (!Notification.isSupported()) return
+    const notification = new Notification({
+      title: payload.title || 'VisperNote',
+      body: payload.body || '',
+      icon,
+      silent: true,
+    })
+    notification.on('click', () => {
+      if (!mainWindow) return
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.show()
+      mainWindow.focus()
+    })
+    notification.show()
+  })
 }
 
 if (singleInstanceLock) {

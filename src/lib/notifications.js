@@ -1,4 +1,20 @@
 const canUseNotifications = () => typeof window !== 'undefined' && 'Notification' in window
+const electronNotify = (payload) => {
+  try {
+    const { ipcRenderer } = window.require ? window.require('electron') : {}
+    if (!ipcRenderer) return false
+    ipcRenderer.send('show-notification', payload)
+    return true
+  } catch {
+    return false
+  }
+}
+
+const inAppNotify = (payload) => {
+  try {
+    window.dispatchEvent(new CustomEvent('vn-notification', { detail: payload }))
+  } catch {}
+}
 
 const settingOn = (key, fallback = true) => {
   try { return localStorage.getItem(key) !== 'false' } catch { return fallback }
@@ -49,6 +65,10 @@ export const notifyApp = async ({ type = 'message', title, body, tag, user, icon
   if (type === 'mention' && !settingOn('vn_notif_mention', true)) return
 
   playPing()
+  const payload = { type, title: title || 'VisperNote', body, tag, icon }
+  inAppNotify(payload)
+  if (electronNotify(payload)) return
+
   if (!canUseNotifications()) return
 
   const permission = await requestNotificationPermission().catch(() => 'denied')

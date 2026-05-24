@@ -1,4 +1,4 @@
-import { useState, useReducer, useRef, useCallback, useEffect } from 'react'
+import { useState, useReducer, useRef, useCallback, useEffect, useLayoutEffect } from 'react'
 import { colors, cv } from '../styles/theme'
 
 const MIN_WIDTH = 160
@@ -253,10 +253,11 @@ function CtxItem({ item, onClose }) {
   )
 }
 
-function SettingsModal({ groupName, onClose, onEditName, inviteCode, pinnedMsgs, members, myId }) {
+function SettingsModal({ groupName, onClose, onEditName, onDeleteGroup, inviteCode, pinnedMsgs, members, myId, ownerId }) {
   const [tab, setTab]           = useState('main')
   const [newName, setNewName]   = useState(groupName || '')
   const [confirming, setConfirming] = useState(false)
+  const [deleteText, setDeleteText] = useState('')
   const [copied, setCopied]     = useState(false)
   const [friendSearch, setFriendSearch] = useState('')
   const [invited, setInvited]   = useState(new Set())
@@ -310,6 +311,7 @@ function SettingsModal({ groupName, onClose, onEditName, inviteCode, pinnedMsgs,
                 </button>
               </div>
               <ModalBtn icon="📌" label="Pinned Messages" onClick={() => setTab('pinned')} />
+              {myId === ownerId && <ModalBtn danger icon="🗑️" label="Delete Diary" onClick={() => { setDeleteText(''); setTab('delete') }} />}
             </>
           )}
 
@@ -419,16 +421,46 @@ function SettingsModal({ groupName, onClose, onEditName, inviteCode, pinnedMsgs,
             </>
           )}
 
+          {tab === 'delete' && (
+            <>
+              <div style={{ cursor: 'pointer', fontSize: 11, color: cv.textDim, marginBottom: 4 }} onClick={() => setTab('main')}>← Back</div>
+              <div style={{ fontSize: 13, color: cv.text, lineHeight: 1.5 }}>
+                Delete <strong style={{ color: '#e06c75' }}>{groupName}</strong> for every member?
+              </div>
+              <div style={{ fontSize: 11.5, color: cv.textDim, lineHeight: 1.55 }}>
+                This permanently removes the diary, its entries, members, and group messages. Type <b style={{ color: cv.text }}>{groupName}</b> to confirm.
+              </div>
+              <input
+                autoFocus
+                value={deleteText}
+                onChange={e => setDeleteText(e.target.value)}
+                style={{ background: cv.elevated, border: `1px solid ${cv.border}`, borderRadius: 8, padding: '8px 12px', fontSize: 13, color: cv.text, outline: 'none', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' }}
+                placeholder={groupName}
+              />
+              <button
+                disabled={deleteText.trim() !== groupName}
+                style={{ padding: '9px 0', background: deleteText.trim() === groupName ? '#e06c75' : cv.elevated, border: 'none', borderRadius: 10, color: deleteText.trim() === groupName ? '#fff' : cv.textDim, fontSize: 13, cursor: deleteText.trim() === groupName ? 'pointer' : 'not-allowed', fontFamily: 'inherit', width: '100%', fontWeight: 700 }}
+                onClick={() => {
+                  if (deleteText.trim() !== groupName) return
+                  onDeleteGroup?.()
+                  onClose()
+                }}
+              >
+                Delete Diary
+              </button>
+            </>
+          )}
+
         </div>
       </div>
     </div>
   )
 }
 
-function ModalBtn({ icon, label, onClick }) {
+function ModalBtn({ icon, label, onClick, danger = false }) {
   const [hov, setHov] = useState(false)
   return (
-    <button style={{ ...ss.modalBtn, background: hov ? cv.hover : cv.elevated }}
+    <button style={{ ...ss.modalBtn, background: hov ? (danger ? 'rgba(224,108,117,0.16)' : cv.hover) : cv.elevated, color: danger ? '#e06c75' : cv.text }}
       onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       onClick={onClick}>
       <span style={{ fontSize: 16 }}>{icon}</span>
@@ -437,7 +469,7 @@ function ModalBtn({ icon, label, onClick }) {
   )
 }
 
-export default function ChatPanel({ groupName, members, messages, chatMsg, onMsgChange, onSend, myId, ownerId, onDeleteMsg, onReactMsg, onPinMsg, onForwardMsg, onEditMsg, onReplyMsg, onlineUsers, inviteCode, onEditName, chatColor = '#e8a882' }) {
+export default function ChatPanel({ groupName, members, messages, chatMsg, onMsgChange, onSend, myId, ownerId, onDeleteMsg, onReactMsg, onPinMsg, onForwardMsg, onEditMsg, onReplyMsg, onlineUsers, inviteCode, onEditName, onDeleteGroup, chatColor = '#e8a882' }) {
   const [width, setWidth] = useState(() => {
     try { return Number(localStorage.getItem('vn_chat_width') || DEFAULT_WIDTH) } catch { return DEFAULT_WIDTH }
   })
@@ -457,7 +489,7 @@ export default function ChatPanel({ groupName, members, messages, chatMsg, onMsg
   const startW = useRef(0)
   const messagesEndRef = useRef(null)
 
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
+  useLayoutEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' }) }, [messages, groupName])
 
   const onMouseDown = useCallback((e) => {
     e.preventDefault()
@@ -574,8 +606,10 @@ export default function ChatPanel({ groupName, members, messages, chatMsg, onMsg
           pinnedMsgs={pinnedMsgs}
           inviteCode={inviteCode}
           onEditName={onEditName}
+          onDeleteGroup={onDeleteGroup}
           members={members}
           myId={myId}
+          ownerId={ownerId}
           onClose={() => setShowSettings(false)}
         />
       )}

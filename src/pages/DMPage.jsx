@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useReducer, useCallback } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useReducer, useCallback } from 'react'
 import Titlebar from '../components/Titlebar'
 import Sidebar from '../components/Sidebar'
 import LoadingOverlay from '../components/LoadingOverlay'
@@ -340,6 +340,13 @@ function ProfilePanel({ contact, myId, isFriend, onRemoveFriend, onAddFriend }) 
           <div style={{ fontSize: 12, color: 'var(--vn-text)' }}>{contact.created_at ? fmtDate(contact.created_at) : 'Long-time friend'}</div>
         </div>
 
+        <div style={{ background: 'var(--vn-elevated)', borderRadius: 10, padding: '10px 12px', border: '1px solid var(--vn-border)' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--vn-text-dim)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 5 }}>Bio</div>
+          <div style={{ fontSize: 12, color: contact.bio ? 'var(--vn-text)' : 'var(--vn-text-dim)', fontStyle: contact.bio ? 'normal' : 'italic', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+            {contact.bio || 'No bio yet.'}
+          </div>
+        </div>
+
         {/* Note — click to edit */}
         <div style={{ background: 'var(--vn-elevated)', borderRadius: 10, padding: '10px 12px', border: '1px solid var(--vn-border)', cursor: editingNote ? 'default' : 'pointer' }}
           onClick={() => { if (!editingNote) { setNoteInput(note); setEditingNote(true) } }}
@@ -452,7 +459,7 @@ export default function DMPage({ groups, activeGroup, onSelectGroup, onReorderGr
   const loadFriends = async () => {
     const { data } = await supabase
       .from('friend_requests')
-      .select('from_user, to_user, from_profile:profiles!friend_requests_from_user_fkey(id,username,display_name,avatar_url,created_at), to_profile:profiles!friend_requests_to_user_fkey(id,username,display_name,avatar_url,created_at)')
+      .select('from_user, to_user, from_profile:profiles!friend_requests_from_user_fkey(id,username,display_name,avatar_url,bio,created_at), to_profile:profiles!friend_requests_to_user_fkey(id,username,display_name,avatar_url,bio,created_at)')
       .eq('status', 'accepted')
       .or(`from_user.eq.${myId},to_user.eq.${myId}`)
     if (data) {
@@ -470,7 +477,7 @@ export default function DMPage({ groups, activeGroup, onSelectGroup, onReorderGr
   const loadRequests = async () => {
     const { data } = await supabase
       .from('friend_requests')
-      .select('id, from_user, from_profile:profiles!friend_requests_from_user_fkey(id,username,display_name,avatar_url)')
+      .select('id, from_user, from_profile:profiles!friend_requests_from_user_fkey(id,username,display_name,avatar_url,bio,created_at)')
       .eq('to_user', myId).eq('status', 'pending')
     if (data) setRequests(data)
   }
@@ -502,7 +509,7 @@ export default function DMPage({ groups, activeGroup, onSelectGroup, onReorderGr
     return () => supabase.removeChannel(ch)
   }, [myId, activeDM, friends, user])
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
+  useLayoutEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' }) }, [messages, activeDM])
 
   const loadMessages = async () => {
     setLoading(true)
@@ -562,7 +569,7 @@ export default function DMPage({ groups, activeGroup, onSelectGroup, onReorderGr
     setSearchError(''); setSearchResult(null)
     if (!searchUser.trim()) return
     if (searchUser.trim() === (user?.username || user?.email?.split('@')[0])) { setSearchError("That's you 😄"); return }
-    const { data } = await supabase.from('profiles').select('id,username,display_name,avatar_url').eq('username', searchUser.trim()).single()
+    const { data } = await supabase.from('profiles').select('id,username,display_name,avatar_url,bio,created_at').eq('username', searchUser.trim()).single()
     if (!data) { setSearchError('User not found.'); return }
     if (friends.find(f => f.id === data.id)) { setSearchError('Already friends!'); return }
     setSearchResult(data)
